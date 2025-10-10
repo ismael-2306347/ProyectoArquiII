@@ -1,234 +1,92 @@
-version: '3.8'
 
 services:
-  # MySQL para Users API
-  users-db:
+  mysql:
     image: mysql:8.0
-    container_name: users-db
+    # environment según lo que venís usando:
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: users_db
+      MYSQL_DATABASE: usersdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpass
+    # Si en Windows tenés otro MySQL ocupando 3306, publicá así:
     ports:
-      - "3306:3306"
+      - "3307:3306"   # host:container (dentro de Docker igual será mysql:3306)
     volumes:
-      - users-data:/var/lib/mysql
-    networks:
-      - hotel-network
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
 
-  # MySQL para Bookings API
-  bookings-db:
-    image: mysql:8.0
-    container_name: bookings-db
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: bookings_db
-    ports:
-      - "3307:3306"
-    volumes:
-      - bookings-data:/var/lib/mysql
-    networks:
-      - hotel-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
-
-  # MongoDB para Rooms API
+  # ===========================
+  # 🔹 Base de datos MongoDB
+  # ===========================
   mongodb:
     image: mongo:6.0
     container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_DATABASE: roomsdb
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
-    networks:
-      - hotel-network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      - mongo_data:/data/db
 
-  # RabbitMQ
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    networks:
-      - hotel-network
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  # Solr
-  solr:
-    image: solr:9
-    container_name: solr
-    ports:
-      - "8983:8983"
-    volumes:
-      - solr-data:/var/solr
-    networks:
-      - hotel-network
-    command:
-      - solr-precreate
-      - rooms
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/rooms/admin/ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  # Memcached
-  memcached:
-    image: memcached:1.6-alpine
-    container_name: memcached
-    ports:
-      - "11211:11211"
-    networks:
-      - hotel-network
-    command: memcached -m 64
-
-  # Users API
+  # ===========================
+  # 🔹 Microservicio Users API
+  # ===========================
   users-api:
-    build:
-      context: ./users-api
-      dockerfile: Dockerfile
-    container_name: users-api
+    build: ./services/users-api
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: user
+      DB_PASSWORD: userpass
+      DB_NAME: usersdb
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
       - "8080:8080"
-    environment:
-      DB_HOST: users-db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: users_db
-      JWT_SECRET: your-secret-key-change-in-production
-    depends_on:
-      users-db:
-        condition: service_healthy
-    networks:
-      - hotel-network
     restart: unless-stopped
 
-  # Rooms API
-  rooms-api:
-    build:
-      context: ./rooms-api
-      dockerfile: Dockerfile
-    container_name: rooms-api
-    ports:
-      - "8081:8081"
-    environment:
-      MONGO_URI: mongodb://mongodb:27017
-      MONGO_DB: rooms_db
-      USERS_API_URL: http://users-api:8080
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      QUEUE_NAME: rooms_queue
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      users-api:
-        condition: service_started
-    networks:
-      - hotel-network
-    restart: unless-stopped
+  # ===========================
+  # 🔹 Microservicio Rooms API (MongoDB)
+  # ===========================# rooms-api:
+#   build:
+#     context: ./services/rooms-api
+#     dockerfile: dockerfile
+#   container_name: rooms-api
+#   restart: always
+#   depends_on:
+#     - mongodb
+#   environment:
+#     MONGO_URI: "mongodb://root:rootpass@mongodb:27017/roomsdb?authSource=admin"
+#     MONGO_DB: roomsdb
+#   ports:
+#     - "8081:8080"
 
-  # Bookings API
-  bookings-api:
-    build:
-      context: ./bookings-api
-      dockerfile: Dockerfile
-    container_name: bookings-api
-    ports:
-      - "8083:8083"
-    environment:
-      DB_HOST: bookings-db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: bookings_db
-      USERS_API_URL: http://users-api:8080
-      ROOMS_API_URL: http://rooms-api:8081
-    depends_on:
-      bookings-db:
-        condition: service_healthy
-      users-api:
-        condition: service_started
-      rooms-api:
-        condition: service_started
-    networks:
-      - hotel-network
-    restart: unless-stopped
-
-  # Search API
-  search-api:
-    build:
-      context: ./search-api
-      dockerfile: Dockerfile
-    container_name: search-api
-    ports:
-      - "8082:8082"
-    environment:
-      SOLR_URL: http://solr:8983/solr/rooms
-      MEMCACHED_HOST: memcached:11211
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      QUEUE_NAME: rooms_queue
-      ROOMS_API_URL: http://rooms-api:8081
-    depends_on:
-      solr:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      memcached:
-        condition: service_started
-      rooms-api:
-        condition: service_started
-    networks:
-      - hotel-network
-    restart: unless-stopped
-
-  # Frontend React
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend
-    ports:
-      - "3000:3000"
-    environment:
-      REACT_APP_USERS_API_URL: http://localhost:8080
-      REACT_APP_ROOMS_API_URL: http://localhost:8081
-      REACT_APP_SEARCH_API_URL: http://localhost:8082
-      REACT_APP_BOOKINGS_API_URL: http://localhost:8083
-    depends_on:
-      - users-api
-      - rooms-api
-      - search-api
-      - bookings-api
-    networks:
-      - hotel-network
-    restart: unless-stopped
-
-networks:
-  hotel-network:
-    driver: bridge
+# reservations-api:
+#   build:
+#     context: ./services/reservations-api
+#     dockerfile: dockerfile
+#   container_name: reservations-api
+#   restart: always
+#   depends_on:
+#     - mysql
+#   environment:
+#     DB_HOST: mysql
+#     DB_PORT: 3306
+#     DB_USER: user
+#     DB_PASSWORD: userpass
+#     DB_NAME: usersdb
+#   ports:
+#     - "8082:8080"
 
 volumes:
-  users-data:
-  bookings-data:
-  mongo-data:
-  solr-data:
+  mysql_data:
+  mongo_data:
