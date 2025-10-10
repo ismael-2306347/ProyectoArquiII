@@ -1,11 +1,14 @@
 package controllers
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
+	"strconv"
+	"users-api/domain"
 	"users-api/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type UserController struct {
@@ -13,18 +16,42 @@ type UserController struct {
 }
 
 func NewUserController(service services.UserService) *UserController {
+
 	return &UserController{service: service}
 }
 
 func (c *UserController) CreateUser(ctx *gin.Context) {
-	// Implementar
-	fmt.Printf("todo: implementar controllers ")
-	ctx.JSON(http.StatusCreated, gin.H{"message": "User created"})
+	var req domain.CreateUserDTO
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	created, err := c.service.CreateUser(ctx, req)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusCreated, gin.H{"user": created})
 }
 
 func (c *UserController) GetUserByID(ctx *gin.Context) {
-	// Implementar
-	ctx.JSON(http.StatusOK, gin.H{"message": "Get user by ID"})
+	idStr := ctx.Param("id")
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	user, err := c.service.GetUserByID(uint(id64))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (c *UserController) Login(ctx *gin.Context) {

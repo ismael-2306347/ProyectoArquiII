@@ -1,35 +1,42 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"users-api/domain"
 	"users-api/repositories"
 )
 
 type UserService interface {
-	CreateUser(dto domain.CreateUserDTO) (domain.UserResponseDTO, error)
+	CreateUser(ctx context.Context, dto domain.CreateUserDTO) (domain.UserResponseDTO, error)
 	GetUserByID(id uint) (domain.UserResponseDTO, error)
 	Login(dto domain.LoginDTO) (domain.LoginResponseDTO, error)
 }
 
 type userService struct {
-	repo repositories.UserRepository
+	repository repositories.UserRepository
 }
 
-func NewUserService(repo repositories.UserRepository) UserService {
-	return &userService{repo: repo}
+func NewUserService(repository repositories.UserRepository) UserService {
+	return &userService{repository: repository}
 }
 
-func (s *userService) CreateUser(dto domain.CreateUserDTO) (domain.UserResponseDTO, error) {
-	// Implementar
-
-	fmt.Printf("todo: implementar services ")
-	return domain.UserResponseDTO{}, nil
+// user_services.go
+func (s *userService) CreateUser(ctx context.Context, dto domain.CreateUserDTO) (domain.UserResponseDTO, error) {
+	created, err := s.repository.Create(ctx, dto) // <-- pasar dto real
+	if err != nil {
+		return domain.UserResponseDTO{}, fmt.Errorf("failed to create user: %w", err)
+	}
+	return created, nil
 }
 
 func (s *userService) GetUserByID(id uint) (domain.UserResponseDTO, error) {
-	// Implementar
-	return domain.UserResponseDTO{}, nil
+	user, err := s.repository.GetByID(id)
+	if err != nil {
+		return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *userService) Login(dto domain.LoginDTO) (domain.LoginResponseDTO, error) {
