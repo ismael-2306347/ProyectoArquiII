@@ -1,13 +1,3 @@
-### 3. Bookings API (Go + MySQL + GORM)
-**Puerto**: 8083
-
-**Endpoints principales**:
-- `POST /api/bookings` - Crear reserva (requiere auth)
-- `GET /api/bookings/:id` - Obtener reserva por ID
-- `GET /api/bookings/user/:userId` - Obtener reservas de un usuario
-- `GET /api/bookings/my-bookings` - Mis reserv# Sistema de Reservas de Hotel - Arquitectura de Microservicios
-
-Sistema web completo basado en microservicios para reservas de habitaciones de hotel, desarrollado con Go, React, MySQL, MongoDB, RabbitMQ y Solr.
 
 ## 🏗️ Arquitectura
 
