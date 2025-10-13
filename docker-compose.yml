@@ -1,4 +1,3 @@
-
 services:
   mysql:
     image: mysql:8.0
@@ -10,11 +9,11 @@ services:
       MYSQL_PASSWORD: userpass
     # Si en Windows tenés otro MySQL ocupando 3306, publicá así:
     ports:
-      - "3307:3306"   # host:container (dentro de Docker igual será mysql:3306)
+      - "3307:3306" # host:container (dentro de Docker igual será mysql:3306)
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -56,19 +55,20 @@ services:
 
   # ===========================
   # 🔹 Microservicio Rooms API (MongoDB)
-  # ===========================# rooms-api:
-#   build:
-#     context: ./services/rooms-api
-#     dockerfile: dockerfile
-#   container_name: rooms-api
-#   restart: always
-#   depends_on:
-#     - mongodb
-#   environment:
-#     MONGO_URI: "mongodb://root:rootpass@mongodb:27017/roomsdb?authSource=admin"
-#     MONGO_DB: roomsdb
-#   ports:
-#     - "8081:8080"
+  # ===========================
+  rooms-api:
+    build:
+      context: ./services/rooms-api
+      dockerfile: dockerfile
+    container_name: rooms-api
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      MONGODB_URI: "mongodb://root:rootpass@mongodb:27017/roomsdb?authSource=admin"
+      MONGODB_DB: roomsdb
+    ports:
+      - "8081:8080"
 
 # reservations-api:
 #   build:
