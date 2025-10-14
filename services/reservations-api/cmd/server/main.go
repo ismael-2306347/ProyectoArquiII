@@ -22,6 +22,12 @@ func main() {
 	reservationController := controllers.NewReservationController(reservationService)
 	// Configurar router
 	router := gin.Default()
+	// --- ACA agregás el health check ---
+	router.POST("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+		})
+	})
 	// Rutas
 	api := router.Group("/api")
 	{
@@ -30,8 +36,8 @@ func main() {
 		//api.DELETE("/reservations/:id", reservationController.CancelReservation)
 	}
 	// Iniciar servidor
-	log.Println("Reservations API running on port 8082")
-	if err := router.Run(":8082"); err != nil {
+	log.Println("Reservations API running on port 8080")
+	if err := router.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }
