@@ -33,7 +33,7 @@ func main() {
 	{
 		api.POST("/reservations", reservationController.CreateReservation)
 		//api.GET("/reservations/:id", reservationController.GetReservationByID)
-		//api.DELETE("/reservations/:id", reservationController.CancelReservation)
+		api.DELETE("/reservations/:id", reservationController.DeleteReservation)
 	}
 	// Iniciar servidor
 	log.Println("Reservations API running on port 8080")

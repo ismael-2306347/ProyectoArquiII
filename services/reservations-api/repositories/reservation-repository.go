@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"reservations-api/domain"
 
@@ -11,6 +12,7 @@ import (
 
 type ReservationRepository interface {
 	Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error)
+	Delete(ctx context.Context, id uint, reason string) error
 }
 
 type reservationRepository struct {
@@ -36,4 +38,33 @@ func (r *reservationRepository) Create(ctx context.Context, reservation domain.R
 
 	// GORM completa ID/CreatedAt/UpdatedAt en 'reservation'
 	return reservation, nil
+}
+
+func (r *reservationRepository) Delete(ctx context.Context, id uint, reason string) error {
+	now := time.Now()
+	// Solo cancela si esta activa
+
+	res := r.db.WithContext(ctx).Model(&domain.Reservation{}).
+		Where("id = ? AND status = ?", id, domain.ReservationStatusActive).
+		Updates(map[string]interface{}{
+			"status":        domain.ReservationStatusCanceled,
+			"cancel_reason": reason,
+			"deleted_at":    &now,
+		})
+	if res.Error != nil {
+		return fmt.Errorf("cancelar reserva: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		var count int64
+		if err := r.db.WithContext(ctx).Model(&domain.Reservation{}).
+			Where("id = ?", id).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil // Ya estaba cancelada
+	}
+	return nil
 }
