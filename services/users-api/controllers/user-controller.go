@@ -16,10 +16,17 @@ type UserController struct {
 }
 
 func NewUserController(service services.UserService) *UserController {
-
 	return &UserController{service: service}
 }
 
+func (c *UserController) GetAllUsers(ctx *gin.Context) {
+	users, err := c.service.GetAllUsers()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"users": users})
+}
 func (c *UserController) CreateUser(ctx *gin.Context) {
 	var req domain.CreateUserDTO
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -55,6 +62,20 @@ func (c *UserController) GetUserByID(ctx *gin.Context) {
 }
 
 func (c *UserController) Login(ctx *gin.Context) {
-	// Implementar
-	ctx.JSON(http.StatusOK, gin.H{"message": "Login"})
+	var req domain.LoginDTO
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := c.service.Login(req)
+	if err != nil {
+		// no revelar detalles -> devolver 401 cuando credenciales inválidas
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// opcional: enviar token en header Authorization
+	ctx.Header("Authorization", "Bearer "+resp.Token)
+	ctx.JSON(http.StatusOK, gin.H{"login": resp})
 }

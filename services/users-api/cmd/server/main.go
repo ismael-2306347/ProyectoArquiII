@@ -27,9 +27,12 @@ func main() {
 	// Rutas
 	api := router.Group("/api")
 	{
+
+		api.GET("/users", userController.GetAllUsers)
 		api.POST("/users", userController.CreateUser)
 		api.GET("/users/:id", userController.GetUserByID)
 		api.POST("/login", userController.Login)
+
 	}
 
 	// Iniciar servidor
