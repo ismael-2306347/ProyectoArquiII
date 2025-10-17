@@ -20,6 +20,7 @@ type UserResponseDTO struct {
 	FirstName string   `json:"first_name"`
 	LastName  string   `json:"last_name"`
 	Role      UserRole `json:"role"`
+	Token     *string  `json:"token,omitempty"`
 }
 
 type LoginResponseDTO struct {
