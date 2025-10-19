@@ -19,10 +19,15 @@ type UserService interface {
 
 type userService struct {
 	repository repositories.UserRepository
+	cache      repositories.UserCacheRepository
 }
 
-func NewUserService(repository repositories.UserRepository) UserService {
-	return &userService{repository: repository}
+func NewUserService(repository repositories.UserRepository, cache repositories.UserCacheRepository) UserService {
+
+	return &userService{
+		repository: repository,
+		cache:      cache,
+	}
 }
 
 func (s *userService) GetAllUsers() ([]domain.UserResponseDTO, error) {
@@ -41,13 +46,32 @@ func (s *userService) CreateUser(ctx context.Context, dto domain.CreateUserDTO) 
 	if err != nil {
 		return domain.UserResponseDTO{}, fmt.Errorf("failed to create user: %w", err)
 	}
+	err = s.cache.Set(ctx, created.ID, created)
+	if err != nil {
+		// Loguear el error pero no interrumpir el flujo
+		fmt.Printf("warning: failed to cache user after creation: %v\n", err)
+	}
+
 	return created, nil
 }
 
 func (s *userService) GetUserByID(id uint) (domain.UserResponseDTO, error) {
-	user, err := s.repository.GetByID(id)
-	if err != nil {
-		return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by ID: %w", err)
+	// Simple implementation without external cache dependency.
+	ctx := context.Background()
+	user, err := s.cache.Get(ctx, id)
+	if err == nil {
+
+		user, err := s.repository.GetByID(id)
+		if err == nil {
+			return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by ID: %w", err)
+		}
+
+		if err := s.cache.Set(ctx, id, user); err != nil {
+			// Loguear el error pero no interrumpir el flujo
+			fmt.Printf("warning: failed to cache user after DB fetch: %v\n", err)
+		}
+
+		return user, nil
 	}
 	return user, nil
 }
