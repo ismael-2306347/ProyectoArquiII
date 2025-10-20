@@ -56,3 +56,23 @@ func (c *ReservationController) DeleteReservation(ctx *gin.Context) {
 	}
 	ctx.Status(http.StatusNoContent)
 }
+
+func (c *ReservationController) GetReservationByID(ctx *gin.Context) {
+	idstr := ctx.Param("id")
+	id64, err := strconv.ParseUint(idstr, 10, 64)
+	if err != nil || id64 == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id invalido"})
+		return
+	}
+
+	dto, err := c.service.GetReservationByID(ctx, uint(id64))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "reserva no encontrada"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"reservation": dto})
+}
