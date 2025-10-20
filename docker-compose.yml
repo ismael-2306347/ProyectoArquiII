@@ -41,13 +41,16 @@ services:
   users-api:
     build: ./services/users-api
     environment:
-      DB_HOST: mysql
-      DB_PORT: "3306"
-      DB_USER: user
-      DB_PASSWORD: userpass
-      DB_NAME: usersdb
-      JWT_SECRET: "superclave-secreta-12345"
-      
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=user
+      - DB_PASSWORD=userpass
+      - DB_NAME=usersdb
+      - JWT_SECRET=supersecreto_cámbialo
+      # 👇 NUEVO: solo variables, no agregamos servicios
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      - MEMCACHED_TTL=600
     depends_on:
       mysql:
         condition: service_healthy
