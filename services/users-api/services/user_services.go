@@ -56,23 +56,22 @@ func (s *userService) CreateUser(ctx context.Context, dto domain.CreateUserDTO) 
 }
 
 func (s *userService) GetUserByID(id uint) (domain.UserResponseDTO, error) {
-	// Simple implementation without external cache dependency.
 	ctx := context.Background()
-	user, err := s.cache.Get(ctx, id)
-	if err == nil {
 
-		user, err := s.repository.GetByID(id)
-		if err == nil {
-			return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by ID: %w", err)
-		}
-
-		if err := s.cache.Set(ctx, id, user); err != nil {
-			// Loguear el error pero no interrumpir el flujo
-			fmt.Printf("warning: failed to cache user after DB fetch: %v\n", err)
-		}
-
-		return user, nil
+	// 1) Intento de caché
+	if cached, err := s.cache.Get(ctx, id); err == nil {
+		return cached, nil
 	}
+
+	// 2) Fallback a DB
+	user, err := s.repository.GetByID(id)
+	if err != nil {
+		return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+
+	// 3) Rehidratar caché (best-effort)
+	_ = s.cache.Set(ctx, id, user)
+
 	return user, nil
 }
 
