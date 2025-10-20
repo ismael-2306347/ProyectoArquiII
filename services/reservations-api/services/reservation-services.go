@@ -10,6 +10,7 @@ import (
 type ReservationService interface {
 	CreateReservation(ctx context.Context, dto domain.CreateReservationDTO) (domain.ReservationResponseDTO, error)
 	DeleteReservation(ctx context.Context, id uint, reason string) error
+	GetReservationByID(ctx context.Context, id uint) (domain.ReservationResponseDTO, error)
 }
 type reservationService struct {
 	repository repositories.ReservationRepository
@@ -69,4 +70,20 @@ func (s *reservationService) DeleteReservation(ctx context.Context, id uint, rea
 		return fmt.Errorf("reason es requerido")
 	}
 	return s.repository.Delete(ctx, id, reason)
+}
+
+func (s *reservationService) GetReservationByID(ctx context.Context, id uint) (domain.ReservationResponseDTO, error) {
+	res, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return domain.ReservationResponseDTO{}, err // puede ser gorm.ErrRecordNotFound
+	}
+	dto := domain.ReservationResponseDTO{
+		ID:        res.ID,
+		UserID:    res.UserID,
+		RoomID:    res.RoomID,
+		StartDate: res.StartDate,
+		EndDate:   res.EndDate,
+		Status:    string(res.Status),
+	}
+	return dto, nil
 }

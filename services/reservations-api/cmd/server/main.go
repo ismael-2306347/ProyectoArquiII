@@ -32,7 +32,7 @@ func main() {
 	api := router.Group("/api")
 	{
 		api.POST("/reservations", reservationController.CreateReservation)
-		//api.GET("/reservations/:id", reservationController.GetReservationByID)
+		api.GET("/reservations/:id", reservationController.GetReservationByID)
 		api.DELETE("/reservations/:id", reservationController.DeleteReservation)
 	}
 	// Iniciar servidor

@@ -13,6 +13,7 @@ import (
 type ReservationRepository interface {
 	Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error)
 	Delete(ctx context.Context, id uint, reason string) error
+	GetByID(ctx context.Context, id uint) (domain.Reservation, error)
 }
 
 type reservationRepository struct {
@@ -67,4 +68,11 @@ func (r *reservationRepository) Delete(ctx context.Context, id uint, reason stri
 		return nil // Ya estaba cancelada
 	}
 	return nil
+}
+func (r *reservationRepository) GetByID(ctx context.Context, id uint) (domain.Reservation, error) {
+	var res domain.Reservation
+	if err := r.db.WithContext(ctx).First(&res, "id = ?").Error; err != nil {
+		return domain.Reservation{}, err // puede ser gorm.ErrRecordNotFound
+	}
+	return res, nil
 }
