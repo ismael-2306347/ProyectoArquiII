@@ -1,14 +1,15 @@
 package config
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func getenvOrDefault(key, def string) string {
@@ -18,27 +19,43 @@ func getenvOrDefault(key, def string) string {
 	return def
 }
 
-func InitMongoDB() *mongo.Database {
-
+func InitMySQL() *gorm.DB {
 	_ = godotenv.Load()
 
-	uri := getenvOrDefault("MONGODB_URI", "mongodb://localhost:27017")
-	dbName := getenvOrDefault("MONGODB_DB", "roomsdb")
+	host := getenvOrDefault("DB_HOST", "localhost")
+	port := getenvOrDefault("DB_PORT", "3306")
+	user := getenvOrDefault("DB_USER", "root")
+	password := getenvOrDefault("DB_PASSWORD", "root")
+	dbName := getenvOrDefault("DB_NAME", "roomsdb")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		user, password, host, port, dbName)
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+		NowFunc: func() time.Time {
+			return time.Now().UTC()
+		},
+	})
+
 	if err != nil {
-		log.Fatalf("❌ Error connecting to MongoDB: %v", err)
+		log.Fatalf("Error connecting to MySQL: %v", err)
 	}
 
-	if err := client.Ping(ctx, nil); err != nil {
-		log.Fatalf("❌ Error pinging MongoDB: %v", err)
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Error getting database instance: %v", err)
 	}
 
-	log.Printf("✅ Connected to MongoDB: %s", uri)
-	log.Printf("✅ Using database: %s", dbName)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return client.Database(dbName)
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatalf("Error pinging MySQL: %v", err)
+	}
+
+	log.Printf("Connected to MySQL: %s@%s:%s/%s", user, host, port, dbName)
+
+	return db
 }

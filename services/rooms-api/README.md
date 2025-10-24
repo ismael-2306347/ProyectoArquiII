@@ -1,6 +1,6 @@
 # Rooms API
 
-A microservice for managing hotel rooms using MongoDB and Go with Gin framework.
+A microservice for managing hotel rooms using MySQL and Go with Gin framework and GORM.
 
 ## Features
 
@@ -8,7 +8,7 @@ A microservice for managing hotel rooms using MongoDB and Go with Gin framework.
 - **Room Management**: Track room status, type, pricing, and amenities
 - **Filtering & Search**: Filter rooms by type, status, floor, price range, and amenities
 - **Pagination**: Support for paginated room listings
-- **MongoDB Integration**: Uses MongoDB for data persistence
+- **MySQL Integration**: Uses MySQL with GORM for data persistence and migrations
 - **RESTful API**: Clean REST API design with proper HTTP status codes
 
 ## Room Model
@@ -61,8 +61,11 @@ A microservice for managing hotel rooms using MongoDB and Go with Gin framework.
 
 ## Environment Variables
 
-- `MONGODB_URI` - MongoDB connection string (default: mongodb://localhost:27017)
-- `MONGODB_DB` - Database name (default: roomsdb)
+- `DB_HOST` - MySQL host (default: localhost)
+- `DB_PORT` - MySQL port (default: 3306)
+- `DB_USER` - MySQL user (default: root)
+- `DB_PASSWORD` - MySQL password (default: root)
+- `DB_NAME` - Database name (default: roomsdb)
 - `PORT` - Server port (default: 8080)
 
 ## Example Usage
@@ -115,26 +118,30 @@ go run ./cmd/server
 
 ## Database Schema
 
-The service uses MongoDB with the following collection structure:
+The service uses MySQL with GORM for automatic migrations. The `rooms` table structure:
 
-```json
-{
-  "_id": "ObjectId",
-  "number": "string",
-  "type": "string",
-  "status": "string", 
-  "price": "number",
-  "description": "string",
-  "capacity": "number",
-  "floor": "number",
-  "has_wifi": "boolean",
-  "has_ac": "boolean", 
-  "has_tv": "boolean",
-  "has_minibar": "boolean",
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
+```sql
+CREATE TABLE `rooms` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `number` VARCHAR(20) NOT NULL UNIQUE,
+  `type` VARCHAR(20) NOT NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'available',
+  `price` DECIMAL(10,2) NOT NULL,
+  `description` TEXT,
+  `capacity` INT NOT NULL,
+  `floor` INT NOT NULL,
+  `has_wifi` TINYINT(1) DEFAULT 0,
+  `has_ac` TINYINT(1) DEFAULT 0,
+  `has_tv` TINYINT(1) DEFAULT 0,
+  `has_minibar` TINYINT(1) DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` TIMESTAMP NULL,
+  INDEX idx_rooms_deleted_at (`deleted_at`)
+);
 ```
+
+**Note**: The table is automatically created and migrated by GORM on application startup.
 
 ## Error Handling
 
