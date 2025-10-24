@@ -1,16 +1,15 @@
 package config
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"os"
 	"time"
 
-	"reservations-api/domain"
-
 	"github.com/joho/godotenv"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func getenvOrDefault(key, def string) string {
@@ -20,54 +19,110 @@ func getenvOrDefault(key, def string) string {
 	return def
 }
 
-func InitDatabase() *gorm.DB {
+func InitDatabase() *mongo.Database {
 	// Carga .env si existe (útil en local; en Docker no hace falta)
 	_ = godotenv.Load()
 
-	user := getenvOrDefault("DB_USER", "user")
-	pass := getenvOrDefault("DB_PASSWORD", "userpass")
-	host := getenvOrDefault("DB_HOST", "mysql") // nombre del servicio en Compose
-	port := getenvOrDefault("DB_PORT", "3306")
-	name := getenvOrDefault("DB_NAME", "reservationsdb")
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local",
-		user, pass, host, port, name,
-	)
+	mongoURI := getenvOrDefault("MONGO_URI", "mongodb://mongodb:27017")
+	dbName := getenvOrDefault("MONGO_DB_NAME", "reservationsdb")
 
 	var (
-		db  *gorm.DB
-		err error
+		client *mongo.Client
+		err    error
 	)
 
 	// Backoff exponencial simple (hasta ~1 min)
 	for attempt := 1; attempt <= 10; attempt++ {
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 		if err == nil {
-			sqlDB, e := db.DB()
-			if e != nil {
-				err = e
+			// Verificar conexión con ping
+			if pingErr := client.Ping(ctx, nil); pingErr != nil {
+				err = pingErr
 			} else {
-				if pingErr := sqlDB.Ping(); pingErr != nil {
-					err = pingErr
-				} else {
-					log.Printf("Conectado a MySQL en %s:%s (intento %d)", host, port, attempt)
-					goto MIGRATE
+				cancel()
+				log.Printf("Conectado a MongoDB en %s (intento %d)", mongoURI, attempt)
+				db := client.Database(dbName)
+
+				// Crear índices
+				if err := createIndexes(db); err != nil {
+					log.Printf("Advertencia: Error creando índices: %v", err)
 				}
+
+				return db
 			}
 		}
 
+		cancel()
 		wait := time.Duration(attempt*2) * time.Second
-		log.Printf("MySQL no listo (intento %d): %v. Reintentando en %s...", attempt, err, wait)
+		log.Printf("MongoDB no listo (intento %d): %v. Reintentando en %s...", attempt, err, wait)
 		time.Sleep(wait)
 	}
 
-	log.Fatalf("No se pudo conectar a la base tras reintentos: %v", err)
+	log.Fatalf("No se pudo conectar a MongoDB tras reintentos: %v", err)
+	return nil
+}
 
-MIGRATE:
-	if err := db.AutoMigrate(&domain.Reservation{}); err != nil {
-		log.Fatalf("Error en AutoMigrate: %v", err)
+// createIndexes crea los índices necesarios para optimizar las queries
+func createIndexes(db *mongo.Database) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	collection := db.Collection("reservations")
+
+	// Índice compuesto para búsquedas por user_id y status
+	userStatusIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "user_id", Value: 1},
+			{Key: "status", Value: 1},
+		},
 	}
-	log.Println("Migración de base de datos completada")
 
-	return db
+	// Índice compuesto para búsquedas por room_id y fechas (evitar solapamientos)
+	roomDatesIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "room_id", Value: 1},
+			{Key: "start_date", Value: 1},
+			{Key: "end_date", Value: 1},
+			{Key: "status", Value: 1},
+		},
+	}
+
+	// Índice para búsquedas por status
+	statusIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "status", Value: 1},
+		},
+	}
+
+	// Índice para soft deletes
+	deletedAtIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "deleted_at", Value: 1},
+		},
+	}
+
+	// Índice para búsquedas por created_at (ordenamiento temporal)
+	createdAtIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "created_at", Value: -1},
+		},
+	}
+
+	indexes := []mongo.IndexModel{
+		userStatusIndex,
+		roomDatesIndex,
+		statusIndex,
+		deletedAtIndex,
+		createdAtIndex,
+	}
+
+	_, err := collection.Indexes().CreateMany(ctx, indexes)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Índices de MongoDB creados exitosamente")
+	return nil
 }

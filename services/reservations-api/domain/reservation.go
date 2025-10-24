@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type ReservationStatus string
 
@@ -10,17 +14,17 @@ const (
 )
 
 type Reservation struct {
-	ID        uint              `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    uint              `gorm:"not null"                json:"user_id"`
-	StartDate string            `gorm:"not null"                json:"start_date"`
-	EndDate   string            `gorm:"not null"                json:"end_date"`
-	RoomID    uint              `gorm:"not null"                json:"room_id"`
-	Status    ReservationStatus `gorm:"type:varchar(20);default:'active'" json:"status"`
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID    uint               `bson:"user_id" json:"user_id"`
+	StartDate string             `bson:"start_date" json:"start_date"`
+	EndDate   string             `bson:"end_date" json:"end_date"`
+	RoomID    uint               `bson:"room_id" json:"room_id"`
+	Status    ReservationStatus  `bson:"status" json:"status"`
 
 	//Soft Delete de cancelación
-	CancelReason *string `gorm:"type:text" json:"cancel_reason,omitempty"`
-	DeletedAt    *string `gorm:"index"     json:"deleted_at,omitempty"`
+	CancelReason *string    `bson:"cancel_reason,omitempty" json:"cancel_reason,omitempty"`
+	DeletedAt    *time.Time `bson:"deleted_at,omitempty" json:"deleted_at,omitempty"`
 
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt time.Time `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
 }

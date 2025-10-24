@@ -1,14 +1,12 @@
 package controllers
 
 import (
-	"errors"
 	"net/http"
 	"reservations-api/domain"
 	"reservations-api/services"
-	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type ReservationController struct {
@@ -32,9 +30,8 @@ func (c *ReservationController) CreateReservation(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{"reservation": created})
 }
 func (c *ReservationController) DeleteReservation(ctx *gin.Context) {
-	idstr := ctx.Param("id")
-	id64, err := strconv.ParseUint(idstr, 10, 64)
-	if err != nil || id64 == 0 {
+	id := strings.TrimSpace(ctx.Param("id"))
+	if id == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id invalido"})
 		return
 	}
@@ -45,9 +42,9 @@ func (c *ReservationController) DeleteReservation(ctx *gin.Context) {
 		return
 	}
 
-	err = c.service.DeleteReservation(ctx, uint(id64), body.Reason)
+	err := c.service.DeleteReservation(ctx, id, body.Reason)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if strings.Contains(err.Error(), "not found") {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "reserva no encontrada"})
 			return
 		}
@@ -58,16 +55,15 @@ func (c *ReservationController) DeleteReservation(ctx *gin.Context) {
 }
 
 func (c *ReservationController) GetReservationByID(ctx *gin.Context) {
-	idstr := ctx.Param("id")
-	id64, err := strconv.ParseUint(idstr, 10, 64)
-	if err != nil || id64 == 0 {
+	id := strings.TrimSpace(ctx.Param("id"))
+	if id == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "id invalido"})
 		return
 	}
 
-	dto, err := c.service.GetReservationByID(ctx, uint(id64))
+	dto, err := c.service.GetReservationByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if strings.Contains(err.Error(), "not found") {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "reserva no encontrada"})
 			return
 		}
