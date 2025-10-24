@@ -4,6 +4,7 @@ import (
 	"log"
 	"reservations-api/config"
 	"reservations-api/controllers"
+	"reservations-api/events"
 	"reservations-api/repositories"
 	"reservations-api/services"
 
@@ -11,14 +12,29 @@ import (
 )
 
 func main() {
-	// Inicializar base de datos
+	// Inicializar base de datos MongoDB
 	db := config.InitDatabase()
 	if db == nil {
 		log.Fatal("Error inicializando la base de datos")
 	}
+
+	// Inicializar RabbitMQ
+	rabbitConn := config.InitRabbitMQ()
+	if rabbitConn == nil {
+		log.Fatal("Error inicializando RabbitMQ")
+	}
+	defer rabbitConn.Close()
+
+	// Inicializar event publisher
+	publisher, err := events.NewEventPublisher(rabbitConn)
+	if err != nil {
+		log.Fatalf("Error inicializando event publisher: %v", err)
+	}
+	defer publisher.Close()
+
 	// Inicializar capas
 	reservationRepo := repositories.NewReservationRepository(db)
-	reservationService := services.NewReservationService(reservationRepo)
+	reservationService := services.NewReservationService(reservationRepo, publisher)
 	reservationController := controllers.NewReservationController(reservationService)
 	// Configurar router
 	router := gin.Default()

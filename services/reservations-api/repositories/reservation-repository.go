@@ -2,77 +2,119 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"reservations-api/domain"
 
-	"gorm.io/gorm"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ReservationRepository interface {
 	Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error)
-	Delete(ctx context.Context, id uint, reason string) error
-	GetByID(ctx context.Context, id uint) (domain.Reservation, error)
+	Delete(ctx context.Context, id string, reason string) error
+	GetByID(ctx context.Context, id string) (domain.Reservation, error)
 }
 
 type reservationRepository struct {
-	db *gorm.DB
+	collection *mongo.Collection
 }
 
-func NewReservationRepository(db *gorm.DB) ReservationRepository {
-	return &reservationRepository{db: db}
+func NewReservationRepository(db *mongo.Database) ReservationRepository {
+	return &reservationRepository{
+		collection: db.Collection("reservations"),
+	}
 }
 
-// Create persiste una Reservation (entidad) y devuelve la entidad guardada.
-// Nota: El formateo a DTO debe hacerse en la capa Service.
+// Create persiste una Reservation en MongoDB y devuelve la entidad guardada.
 func (r *reservationRepository) Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error) {
 	// Estado por defecto si no viene seteado
 	if reservation.Status == "" {
 		reservation.Status = domain.ReservationStatusActive
 	}
 
-	// Usar el context en GORM
-	if err := r.db.WithContext(ctx).Create(&reservation).Error; err != nil {
+	// Generar nuevo ID si no existe
+	if reservation.ID.IsZero() {
+		reservation.ID = primitive.NewObjectID()
+	}
+
+	// Setear timestamps
+	now := time.Now()
+	reservation.CreatedAt = now
+	reservation.UpdatedAt = now
+
+	// Insertar en MongoDB
+	_, err := r.collection.InsertOne(ctx, reservation)
+	if err != nil {
 		return domain.Reservation{}, fmt.Errorf("failed to create reservation: %w", err)
 	}
 
-	// GORM completa ID/CreatedAt/UpdatedAt en 'reservation'
 	return reservation, nil
 }
 
-func (r *reservationRepository) Delete(ctx context.Context, id uint, reason string) error {
-	now := time.Now()
-	// Solo cancela si esta activa
+// Delete marca una reserva como cancelada (soft delete)
+func (r *reservationRepository) Delete(ctx context.Context, id string, reason string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid id format: %w", err)
+	}
 
-	res := r.db.WithContext(ctx).Model(&domain.Reservation{}).
-		Where("id = ? AND status = ?", id, domain.ReservationStatusActive).
-		Updates(map[string]interface{}{
+	now := time.Now()
+
+	// Solo cancela si esta activa
+	filter := bson.M{
+		"_id":    objID,
+		"status": domain.ReservationStatusActive,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
 			"status":        domain.ReservationStatusCanceled,
 			"cancel_reason": reason,
-			"deleted_at":    &now,
-		})
-	if res.Error != nil {
-		return fmt.Errorf("cancelar reserva: %w", res.Error)
+			"deleted_at":    now,
+			"updated_at":    now,
+		},
 	}
-	if res.RowsAffected == 0 {
-		var count int64
-		if err := r.db.WithContext(ctx).Model(&domain.Reservation{}).
-			Where("id = ?", id).
-			Count(&count).Error; err != nil {
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("cancelar reserva: %w", err)
+	}
+
+	if result.MatchedCount == 0 {
+		// Verificar si existe el documento
+		count, err := r.collection.CountDocuments(ctx, bson.M{"_id": objID})
+		if err != nil {
 			return err
 		}
 		if count == 0 {
-			return gorm.ErrRecordNotFound
+			return errors.New("reservation not found")
 		}
-		return nil // Ya estaba cancelada
+		// Ya estaba cancelada
+		return nil
 	}
+
 	return nil
 }
-func (r *reservationRepository) GetByID(ctx context.Context, id uint) (domain.Reservation, error) {
-	var res domain.Reservation
-	if err := r.db.WithContext(ctx).First(&res, "id = ?").Error; err != nil {
-		return domain.Reservation{}, err // puede ser gorm.ErrRecordNotFound
+
+// GetByID obtiene una reserva por su ID
+func (r *reservationRepository) GetByID(ctx context.Context, id string) (domain.Reservation, error) {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return domain.Reservation{}, fmt.Errorf("invalid id format: %w", err)
 	}
-	return res, nil
+
+	var reservation domain.Reservation
+	err = r.collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&reservation)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return domain.Reservation{}, errors.New("reservation not found")
+		}
+		return domain.Reservation{}, err
+	}
+
+	return reservation, nil
 }

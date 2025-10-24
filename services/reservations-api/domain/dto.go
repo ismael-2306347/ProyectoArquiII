@@ -9,7 +9,7 @@ type CreateReservationDTO struct {
 }
 
 type ReservationResponseDTO struct {
-	ID        uint   `json:"id"`
+	ID        string `json:"id"`
 	UserID    uint   `json:"user_id"`
 	StartDate string `json:"start_date"`
 	EndDate   string `json:"end_date"`
