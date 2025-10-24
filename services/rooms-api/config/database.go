@@ -22,40 +22,50 @@ func getenvOrDefault(key, def string) string {
 func InitMySQL() *gorm.DB {
 	_ = godotenv.Load()
 
-	host := getenvOrDefault("DB_HOST", "localhost")
+	// Variables de entorno para conectar a mysql-rooms
+	host := getenvOrDefault("DB_HOST", "mysql-rooms")
 	port := getenvOrDefault("DB_PORT", "3306")
-	user := getenvOrDefault("DB_USER", "root")
-	password := getenvOrDefault("DB_PASSWORD", "root")
+	user := getenvOrDefault("DB_USER", "roomsuser")
+	password := getenvOrDefault("DB_PASSWORD", "roomspass")
 	dbName := getenvOrDefault("DB_NAME", "roomsdb")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		user, password, host, port, dbName)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-		NowFunc: func() time.Time {
-			return time.Now().UTC()
-		},
-	})
+	var db *gorm.DB
+	var err error
 
-	if err != nil {
-		log.Fatalf("Error connecting to MySQL: %v", err)
+	// Reintentos con backoff exponencial
+	for attempt := 1; attempt <= 10; attempt++ {
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+			NowFunc: func() time.Time {
+				return time.Now().UTC()
+			},
+		})
+
+		if err == nil {
+			sqlDB, dbErr := db.DB()
+			if dbErr == nil {
+				if pingErr := sqlDB.Ping(); pingErr == nil {
+					// Configuración del pool de conexiones
+					sqlDB.SetMaxIdleConns(10)
+					sqlDB.SetMaxOpenConns(100)
+					sqlDB.SetConnMaxLifetime(time.Hour)
+
+					log.Printf("✅ Conectado a MySQL Rooms: %s@%s:%s/%s (intento %d)",
+						user, host, port, dbName, attempt)
+					return db
+				}
+			}
+		}
+
+		wait := time.Duration(attempt*2) * time.Second
+		log.Printf("⏳ MySQL Rooms no listo (intento %d): %v. Reintentando en %s...",
+			attempt, err, wait)
+		time.Sleep(wait)
 	}
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("Error getting database instance: %v", err)
-	}
-
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
-	if err := sqlDB.Ping(); err != nil {
-		log.Fatalf("Error pinging MySQL: %v", err)
-	}
-
-	log.Printf("Connected to MySQL: %s@%s:%s/%s", user, host, port, dbName)
-
-	return db
+	log.Fatalf("❌ No se pudo conectar a MySQL Rooms tras reintentos: %v", err)
+	return nil
 }

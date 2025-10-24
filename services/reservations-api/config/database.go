@@ -23,8 +23,8 @@ func InitDatabase() *mongo.Database {
 	// Carga .env si existe (útil en local; en Docker no hace falta)
 	_ = godotenv.Load()
 
-	mongoURI := getenvOrDefault("MONGO_URI", "mongodb://mongodb:27017")
-	dbName := getenvOrDefault("MONGO_DB_NAME", "reservationsdb")
+	mongoURI := getenvOrDefault("MONGO_URI", "mongodb://mongo:27017")
+	dbName := getenvOrDefault("MONGO_DB_NAME", "mongodb")
 
 	var (
 		client *mongo.Client
