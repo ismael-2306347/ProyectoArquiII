@@ -4,6 +4,7 @@ import (
 	"log"
 	"rooms-api/config"
 	"rooms-api/controllers"
+	"rooms-api/domain"
 	"rooms-api/repositories"
 	"rooms-api/services"
 
@@ -11,13 +12,19 @@ import (
 )
 
 func main() {
-	// Initialize MongoDB connection
-	db := config.InitMongoDB()
-	defer func() {
-		if err := db.Client().Disconnect(nil); err != nil {
-			log.Printf("Error disconnecting from MongoDB: %v", err)
-		}
-	}()
+	// Initialize MySQL connection
+	db := config.InitMySQL()
+
+	// Auto migrate the schema
+	if err := db.AutoMigrate(&domain.Room{}); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to get database instance: %v", err)
+	}
+	defer sqlDB.Close()
 
 	// Initialize repository
 	roomRepo := repositories.NewRoomRepository(db)

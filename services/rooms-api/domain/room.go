@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"gorm.io/gorm"
 )
 
 type RoomType string
@@ -26,18 +26,19 @@ const (
 )
 
 type Room struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Number      string             `bson:"number" json:"number"`
-	Type        RoomType           `bson:"type" json:"type"`
-	Status      RoomStatus         `bson:"status" json:"status"`
-	Price       float64            `bson:"price" json:"price"`
-	Description string             `bson:"description" json:"description"`
-	Capacity    int                `bson:"capacity" json:"capacity"`
-	Floor       int                `bson:"floor" json:"floor"`
-	HasWifi     bool               `bson:"has_wifi" json:"has_wifi"`
-	HasAC       bool               `bson:"has_ac" json:"has_ac"`
-	HasTV       bool               `bson:"has_tv" json:"has_tv"`
-	HasMinibar  bool               `bson:"has_minibar" json:"has_minibar"`
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
+	ID          uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	Number      string         `gorm:"uniqueIndex;not null;size:20" json:"number"`
+	Type        RoomType       `gorm:"type:varchar(20);not null" json:"type"`
+	Status      RoomStatus     `gorm:"type:varchar(20);not null;default:'available'" json:"status"`
+	Price       float64        `gorm:"type:decimal(10,2);not null" json:"price"`
+	Description string         `gorm:"type:text" json:"description"`
+	Capacity    int            `gorm:"not null" json:"capacity"`
+	Floor       int            `gorm:"not null" json:"floor"`
+	HasWifi     bool           `gorm:"default:false" json:"has_wifi"`
+	HasAC       bool           `gorm:"default:false" json:"has_ac"`
+	HasTV       bool           `gorm:"default:false" json:"has_tv"`
+	HasMinibar  bool           `gorm:"default:false" json:"has_minibar"`
+	CreatedAt   time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }

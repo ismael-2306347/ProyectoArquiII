@@ -4,130 +4,113 @@ import (
 	"context"
 	"rooms-api/domain"
 	"rooms-api/utils"
-	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm"
 )
 
 type RoomRepository struct {
-	collection *mongo.Collection
+	db *gorm.DB
 }
 
-func NewRoomRepository(db *mongo.Database) *RoomRepository {
+func NewRoomRepository(db *gorm.DB) *RoomRepository {
 	return &RoomRepository{
-		collection: db.Collection("rooms"),
+		db: db,
 	}
 }
 
 func (r *RoomRepository) Create(ctx context.Context, room *domain.Room) error {
-	room.CreatedAt = time.Now()
-	room.UpdatedAt = time.Now()
-
-	filter := bson.M{"number": room.Number}
+	// Verificar si ya existe una habitación con el mismo número
 	var existingRoom domain.Room
-	err := r.collection.FindOne(ctx, filter).Decode(&existingRoom)
-	if err == nil {
+	result := r.db.WithContext(ctx).Where("number = ?", room.Number).First(&existingRoom)
+
+	if result.Error == nil {
 		return utils.ErrRoomAlreadyExists
 	}
-	if err != mongo.ErrNoDocuments {
+
+	if result.Error != gorm.ErrRecordNotFound {
 		return utils.ErrDatabaseError
 	}
 
-	_, err = r.collection.InsertOne(ctx, room)
-	if err != nil {
+	// Crear la habitación
+	if err := r.db.WithContext(ctx).Create(room).Error; err != nil {
 		return utils.ErrDatabaseError
 	}
+
 	return nil
 }
 
 func (r *RoomRepository) GetByID(ctx context.Context, id string) (*domain.Room, error) {
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, utils.ErrInvalidID
-	}
-
-	filter := bson.M{"_id": objectID}
 	var room domain.Room
-	err = r.collection.FindOne(ctx, filter).Decode(&room)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
+	result := r.db.WithContext(ctx).Where("id = ?", id).First(&room)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
 			return nil, utils.ErrRoomNotFound
 		}
 		return nil, utils.ErrDatabaseError
 	}
+
 	return &room, nil
 }
 
 func (r *RoomRepository) GetByNumber(ctx context.Context, number string) (*domain.Room, error) {
-	filter := bson.M{"number": number}
 	var room domain.Room
-	err := r.collection.FindOne(ctx, filter).Decode(&room)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
+	result := r.db.WithContext(ctx).Where("number = ?", number).First(&room)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
 			return nil, utils.ErrRoomNotFound
 		}
 		return nil, utils.ErrDatabaseError
 	}
+
 	return &room, nil
 }
 
 func (r *RoomRepository) GetAll(ctx context.Context, filter domain.RoomFilter, page, limit int) ([]domain.Room, int64, error) {
+	var rooms []domain.Room
+	var total int64
 
-	mongoFilter := bson.M{}
+	// Construir query base
+	query := r.db.WithContext(ctx).Model(&domain.Room{})
 
+	// Aplicar filtros
 	if filter.Type != nil {
-		mongoFilter["type"] = *filter.Type
+		query = query.Where("type = ?", *filter.Type)
 	}
 	if filter.Status != nil {
-		mongoFilter["status"] = *filter.Status
+		query = query.Where("status = ?", *filter.Status)
 	}
 	if filter.Floor != nil {
-		mongoFilter["floor"] = *filter.Floor
+		query = query.Where("floor = ?", *filter.Floor)
 	}
-	if filter.MinPrice != nil || filter.MaxPrice != nil {
-		priceFilter := bson.M{}
-		if filter.MinPrice != nil {
-			priceFilter["$gte"] = *filter.MinPrice
-		}
-		if filter.MaxPrice != nil {
-			priceFilter["$lte"] = *filter.MaxPrice
-		}
-		mongoFilter["price"] = priceFilter
+	if filter.MinPrice != nil {
+		query = query.Where("price >= ?", *filter.MinPrice)
+	}
+	if filter.MaxPrice != nil {
+		query = query.Where("price <= ?", *filter.MaxPrice)
 	}
 	if filter.HasWifi != nil {
-		mongoFilter["has_wifi"] = *filter.HasWifi
+		query = query.Where("has_wifi = ?", *filter.HasWifi)
 	}
 	if filter.HasAC != nil {
-		mongoFilter["has_ac"] = *filter.HasAC
+		query = query.Where("has_ac = ?", *filter.HasAC)
 	}
 	if filter.HasTV != nil {
-		mongoFilter["has_tv"] = *filter.HasTV
+		query = query.Where("has_tv = ?", *filter.HasTV)
 	}
 	if filter.HasMinibar != nil {
-		mongoFilter["has_minibar"] = *filter.HasMinibar
+		query = query.Where("has_minibar = ?", *filter.HasMinibar)
 	}
 
-	total, err := r.collection.CountDocuments(ctx, mongoFilter)
-	if err != nil {
+	// Contar total de registros
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, utils.ErrDatabaseError
 	}
 
-	opts := options.Find()
-	opts.SetSkip(int64((page - 1) * limit))
-	opts.SetLimit(int64(limit))
-	opts.SetSort(bson.D{{"number", 1}})
-
-	cursor, err := r.collection.Find(ctx, mongoFilter, opts)
-	if err != nil {
-		return nil, 0, utils.ErrDatabaseError
-	}
-	defer cursor.Close(ctx)
-
-	var rooms []domain.Room
-	if err = cursor.All(ctx, &rooms); err != nil {
+	// Aplicar paginación y ordenamiento
+	offset := (page - 1) * limit
+	if err := query.Order("number ASC").Offset(offset).Limit(limit).Find(&rooms).Error; err != nil {
 		return nil, 0, utils.ErrDatabaseError
 	}
 
@@ -135,67 +118,75 @@ func (r *RoomRepository) GetAll(ctx context.Context, filter domain.RoomFilter, p
 }
 
 func (r *RoomRepository) Update(ctx context.Context, id string, updateData domain.UpdateRoomRequest) (*domain.Room, error) {
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, utils.ErrInvalidID
-	}
-
-	update := bson.M{"$set": bson.M{"updated_at": time.Now()}}
-
-	if updateData.Number != nil {
-
-		if *updateData.Number != "" {
-			filter := bson.M{"number": *updateData.Number, "_id": bson.M{"$ne": objectID}}
-			var existingRoom domain.Room
-			err := r.collection.FindOne(ctx, filter).Decode(&existingRoom)
-			if err == nil {
-				return nil, utils.ErrRoomAlreadyExists
-			}
-			if err != mongo.ErrNoDocuments {
-				return nil, utils.ErrDatabaseError
-			}
-		}
-		update["$set"].(bson.M)["number"] = *updateData.Number
-	}
-	if updateData.Type != nil {
-		update["$set"].(bson.M)["type"] = *updateData.Type
-	}
-	if updateData.Status != nil {
-		update["$set"].(bson.M)["status"] = *updateData.Status
-	}
-	if updateData.Price != nil {
-		update["$set"].(bson.M)["price"] = *updateData.Price
-	}
-	if updateData.Description != nil {
-		update["$set"].(bson.M)["description"] = *updateData.Description
-	}
-	if updateData.Capacity != nil {
-		update["$set"].(bson.M)["capacity"] = *updateData.Capacity
-	}
-	if updateData.Floor != nil {
-		update["$set"].(bson.M)["floor"] = *updateData.Floor
-	}
-	if updateData.HasWifi != nil {
-		update["$set"].(bson.M)["has_wifi"] = *updateData.HasWifi
-	}
-	if updateData.HasAC != nil {
-		update["$set"].(bson.M)["has_ac"] = *updateData.HasAC
-	}
-	if updateData.HasTV != nil {
-		update["$set"].(bson.M)["has_tv"] = *updateData.HasTV
-	}
-	if updateData.HasMinibar != nil {
-		update["$set"].(bson.M)["has_minibar"] = *updateData.HasMinibar
-	}
-
-	filter := bson.M{"_id": objectID}
-	result := r.collection.FindOneAndUpdate(ctx, filter, update, options.FindOneAndUpdate().SetReturnDocument(options.After))
-
+	// Verificar que la habitación existe
 	var room domain.Room
-	if err := result.Decode(&room); err != nil {
-		if err == mongo.ErrNoDocuments {
+	result := r.db.WithContext(ctx).Where("id = ?", id).First(&room)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
 			return nil, utils.ErrRoomNotFound
 		}
+		return nil, utils.ErrDatabaseError
+	}
+
+	// Si se está actualizando el número, verificar que no exista otra habitación con ese número
+	if updateData.Number != nil && *updateData.Number != "" {
+		var existingRoom domain.Room
+		result := r.db.WithContext(ctx).Where("number = ? AND id != ?", *updateData.Number, id).First(&existingRoom)
+
+		if result.Error == nil {
+			return nil, utils.ErrRoomAlreadyExists
+		}
+
+		if result.Error != gorm.ErrRecordNotFound {
+			return nil, utils.ErrDatabaseError
+		}
+	}
+
+	// Preparar los datos a actualizar
+	updates := make(map[string]interface{})
+
+	if updateData.Number != nil {
+		updates["number"] = *updateData.Number
+	}
+	if updateData.Type != nil {
+		updates["type"] = *updateData.Type
+	}
+	if updateData.Status != nil {
+		updates["status"] = *updateData.Status
+	}
+	if updateData.Price != nil {
+		updates["price"] = *updateData.Price
+	}
+	if updateData.Description != nil {
+		updates["description"] = *updateData.Description
+	}
+	if updateData.Capacity != nil {
+		updates["capacity"] = *updateData.Capacity
+	}
+	if updateData.Floor != nil {
+		updates["floor"] = *updateData.Floor
+	}
+	if updateData.HasWifi != nil {
+		updates["has_wifi"] = *updateData.HasWifi
+	}
+	if updateData.HasAC != nil {
+		updates["has_ac"] = *updateData.HasAC
+	}
+	if updateData.HasTV != nil {
+		updates["has_tv"] = *updateData.HasTV
+	}
+	if updateData.HasMinibar != nil {
+		updates["has_minibar"] = *updateData.HasMinibar
+	}
+
+	// Actualizar la habitación
+	if err := r.db.WithContext(ctx).Model(&room).Updates(updates).Error; err != nil {
+		return nil, utils.ErrDatabaseError
+	}
+
+	// Obtener la habitación actualizada
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&room).Error; err != nil {
 		return nil, utils.ErrDatabaseError
 	}
 
@@ -203,18 +194,13 @@ func (r *RoomRepository) Update(ctx context.Context, id string, updateData domai
 }
 
 func (r *RoomRepository) Delete(ctx context.Context, id string) error {
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return utils.ErrInvalidID
-	}
+	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&domain.Room{})
 
-	filter := bson.M{"_id": objectID}
-	result, err := r.collection.DeleteOne(ctx, filter)
-	if err != nil {
+	if result.Error != nil {
 		return utils.ErrDatabaseError
 	}
 
-	if result.DeletedCount == 0 {
+	if result.RowsAffected == 0 {
 		return utils.ErrRoomNotFound
 	}
 

@@ -5,8 +5,6 @@ import (
 	"rooms-api/domain"
 	"rooms-api/repositories"
 	"strconv"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type RoomService struct {
@@ -138,7 +136,7 @@ func (s *RoomService) SearchRooms(ctx context.Context, query string, page, limit
 
 func (s *RoomService) roomToResponse(room *domain.Room) *domain.RoomResponse {
 	return &domain.RoomResponse{
-		ID:          room.ID.Hex(),
+		ID:          strconv.FormatUint(uint64(room.ID), 10),
 		Number:      room.Number,
 		Type:        room.Type,
 		Status:      room.Status,
@@ -153,10 +151,6 @@ func (s *RoomService) roomToResponse(room *domain.Room) *domain.RoomResponse {
 		CreatedAt:   room.CreatedAt,
 		UpdatedAt:   room.UpdatedAt,
 	}
-}
-
-func parseObjectID(id string) (primitive.ObjectID, error) {
-	return primitive.ObjectIDFromHex(id)
 }
 
 func parseIntWithDefault(s string, defaultValue int) int {
