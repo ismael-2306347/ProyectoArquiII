@@ -8,7 +8,7 @@ import (
 )
 
 func InitRabbitMQ() *amqp.Connection {
-	rabbitURL := getenvOrDefault("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+	rabbitURL := getenvOrDefault("RABBITMQ_URL", "amqp://rabbitmq:5672/")
 
 	var (
 		conn *amqp.Connection
