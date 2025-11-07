@@ -47,6 +47,7 @@ func main() {
 	// Rutas
 	api := router.Group("/api")
 	{
+		api.GET("/reservations", reservationController.GetAllReservations)
 		api.POST("/reservations", reservationController.CreateReservation)
 		api.GET("/reservations/:id", reservationController.GetReservationByID)
 		api.DELETE("/reservations/:id", reservationController.DeleteReservation)

@@ -14,6 +14,7 @@ import (
 )
 
 type ReservationRepository interface {
+	GetAll(ctx context.Context) ([]domain.Reservation, error)
 	Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error)
 	Delete(ctx context.Context, id string, reason string) error
 	GetByID(ctx context.Context, id string) (domain.Reservation, error)
@@ -27,6 +28,18 @@ func NewReservationRepository(db *mongo.Database) ReservationRepository {
 	return &reservationRepository{
 		collection: db.Collection("reservations"),
 	}
+}
+func (r *reservationRepository) GetAll(ctx context.Context) ([]domain.Reservation, error) {
+	cursor, err := r.collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch reservations: %w", err)
+	}
+	defer cursor.Close(ctx)
+	var reservations []domain.Reservation
+	if err := cursor.All(ctx, &reservations); err != nil {
+		return nil, fmt.Errorf("failed to decode reservations: %w", err)
+	}
+	return reservations, nil
 }
 
 // Create persiste una Reservation en MongoDB y devuelve la entidad guardada.

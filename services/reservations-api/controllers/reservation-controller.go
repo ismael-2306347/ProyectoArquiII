@@ -16,6 +16,15 @@ type ReservationController struct {
 func NewReservationController(service services.ReservationService) *ReservationController {
 	return &ReservationController{service: service}
 }
+func (c *ReservationController) GetAllReservations(ctx *gin.Context) {
+	reservations, err := c.service.GetAllReservations(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"reservations": reservations})
+}
+
 func (c *ReservationController) CreateReservation(ctx *gin.Context) {
 	var req domain.CreateReservationDTO
 	if err := ctx.ShouldBindJSON(&req); err != nil {
