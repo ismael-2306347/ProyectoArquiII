@@ -54,11 +54,15 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpass
-      MONGO_INITDB_DATABASE: mongodb
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
 
   # ===========================
   # 🔹 RabbitMQ para eventos
@@ -130,12 +134,14 @@ services:
     container_name: reservations-api
     restart: always
     depends_on:
-      - mongodb
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
-      MONGO_URI: "mongodb://mongodb:27017"
-      MONGO_DB_NAME: mongodb
-      RABBITMQ_URL: "amqp://rabbitmq:5672/"
+      MONGO_URI: "mongodb://root:rootpass@mongodb:27017/?authSource=admin"
+      MONGO_DB_NAME: "mongodb"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
     ports:
       - "8082:8080"
 

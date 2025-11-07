@@ -11,7 +11,7 @@ import (
 )
 
 type ReservationService interface {
-	CreateReservation(ctx context.Context, dto domain.CreateReservationDTO) (domain.ReservationResponseDTO, error)
+	CreateReservation(ctx context.Context, dto domain.CreateReservationDTO) (domain.Reservation, error)
 	DeleteReservation(ctx context.Context, id string, reason string) error
 	GetReservationByID(ctx context.Context, id string) (domain.ReservationResponseDTO, error)
 }
@@ -30,15 +30,15 @@ func NewReservationService(repository repositories.ReservationRepository, publis
 func (s *reservationService) CreateReservation(
 	ctx context.Context,
 	dto domain.CreateReservationDTO,
-) (domain.ReservationResponseDTO, error) {
+) (domain.Reservation, error) {
 
 	// Validaciones simples con strings
 	if dto.StartDate == "" || dto.EndDate == "" {
-		return domain.ReservationResponseDTO{}, fmt.Errorf("start_date y end_date son requeridos")
+		return domain.Reservation{}, fmt.Errorf("start_date y end_date son requeridos")
 	}
 
 	if dto.EndDate <= dto.StartDate {
-		return domain.ReservationResponseDTO{}, fmt.Errorf("end_date debe ser posterior a start_date")
+		return domain.Reservation{}, fmt.Errorf("end_date debe ser posterior a start_date")
 	}
 
 	// Mapear DTO → entidad (sin conversión)
@@ -53,7 +53,7 @@ func (s *reservationService) CreateReservation(
 	// Guardar en base de datos
 	saved, err := s.repository.Create(ctx, entity)
 	if err != nil {
-		return domain.ReservationResponseDTO{}, fmt.Errorf("failed to create reservation: %w", err)
+		return domain.Reservation{}, fmt.Errorf("failed to create reservation: %w", err)
 	}
 
 	// Publicar evento en goroutine para no bloquear la respuesta
@@ -79,13 +79,13 @@ func (s *reservationService) CreateReservation(
 	}()
 
 	// Mapear entidad → DTO de respuesta
-	resp := domain.ReservationResponseDTO{
-		ID:        saved.ID.Hex(),
+	resp := domain.Reservation{
+		ID:        saved.ID,
 		UserID:    saved.UserID,
 		RoomID:    saved.RoomID,
 		StartDate: saved.StartDate,
 		EndDate:   saved.EndDate,
-		Status:    string(saved.Status),
+		Status:    saved.Status,
 	}
 
 	return resp, nil

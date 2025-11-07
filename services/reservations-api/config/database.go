@@ -23,7 +23,7 @@ func InitDatabase() *mongo.Database {
 	// Carga .env si existe (útil en local; en Docker no hace falta)
 	_ = godotenv.Load()
 
-	mongoURI := getenvOrDefault("MONGO_URI", "mongodb://mongo:27017")
+	mongoURI := getenvOrDefault("MONGO_URI", "mongodb://mongodb:27017")
 	dbName := getenvOrDefault("MONGO_DB_NAME", "mongodb")
 
 	var (
@@ -35,7 +35,12 @@ func InitDatabase() *mongo.Database {
 	for attempt := 1; attempt <= 10; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
+		clientOptions := options.Client().
+			ApplyURI(mongoURI).
+			SetServerSelectionTimeout(5 * time.Second).
+			SetConnectTimeout(10 * time.Second)
+
+		client, err = mongo.Connect(ctx, clientOptions)
 		if err == nil {
 			// Verificar conexión con ping
 			if pingErr := client.Ping(ctx, nil); pingErr != nil {
