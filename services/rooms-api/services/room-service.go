@@ -3,26 +3,28 @@ package services
 import (
 	"context"
 	"rooms-api/domain"
+	"rooms-api/events"
 	"rooms-api/repositories"
 	"strconv"
 )
 
 type RoomService struct {
-	roomRepo *repositories.RoomRepository
+	roomRepo  *repositories.RoomRepository
+	publisher *events.EventPublisher
 }
 
-func NewRoomService(roomRepo *repositories.RoomRepository) *RoomService {
+func NewRoomService(roomRepo *repositories.RoomRepository, publisher *events.EventPublisher) *RoomService {
 	return &RoomService{
-		roomRepo: roomRepo,
+		roomRepo:  roomRepo,
+		publisher: publisher,
 	}
 }
 
 func (s *RoomService) CreateRoom(ctx context.Context, req domain.CreateRoomRequest) (*domain.RoomResponse, error) {
-
 	room := &domain.Room{
 		Number:      req.Number,
 		Type:        req.Type,
-		Status:      domain.RoomStatusAvailable, // Por defecto disponible
+		Status:      domain.RoomStatusAvailable,
 		Price:       req.Price,
 		Description: req.Description,
 		Capacity:    req.Capacity,
@@ -36,6 +38,11 @@ func (s *RoomService) CreateRoom(ctx context.Context, req domain.CreateRoomReque
 	err := s.roomRepo.Create(ctx, room)
 	if err != nil {
 		return nil, err
+	}
+
+	// Publicar evento de creación
+	if s.publisher != nil {
+		go s.publisher.PublishRoomCreated(room)
 	}
 
 	return s.roomToResponse(room), nil
@@ -60,7 +67,6 @@ func (s *RoomService) GetRoomByNumber(ctx context.Context, number string) (*doma
 }
 
 func (s *RoomService) GetRooms(ctx context.Context, filter domain.RoomFilter, page, limit int) (*domain.RoomListResponse, error) {
-	// Validar parámetros de paginación
 	if page < 1 {
 		page = 1
 	}
@@ -87,16 +93,50 @@ func (s *RoomService) GetRooms(ctx context.Context, filter domain.RoomFilter, pa
 }
 
 func (s *RoomService) UpdateRoom(ctx context.Context, id string, req domain.UpdateRoomRequest) (*domain.RoomResponse, error) {
+	// Obtener estado anterior para detectar cambios de status
+	oldRoom, err := s.roomRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	oldStatus := oldRoom.Status
+
+	// Actualizar
 	room, err := s.roomRepo.Update(ctx, id, req)
 	if err != nil {
 		return nil, err
+	}
+
+	// Publicar evento de actualización
+	if s.publisher != nil {
+		go s.publisher.PublishRoomUpdated(room)
+
+		// Si cambió el status, publicar evento específico
+		if oldStatus != room.Status {
+			go s.publisher.PublishRoomStatusChanged(room.ID, string(oldStatus), string(room.Status))
+		}
 	}
 
 	return s.roomToResponse(room), nil
 }
 
 func (s *RoomService) DeleteRoom(ctx context.Context, id string) error {
-	return s.roomRepo.Delete(ctx, id)
+	// Obtener ID antes de eliminar
+	room, err := s.roomRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = s.roomRepo.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Publicar evento de eliminación
+	if s.publisher != nil {
+		go s.publisher.PublishRoomDeleted(room.ID)
+	}
+
+	return nil
 }
 
 func (s *RoomService) UpdateRoomStatus(ctx context.Context, id string, status domain.RoomStatus) (*domain.RoomResponse, error) {
@@ -107,10 +147,8 @@ func (s *RoomService) UpdateRoomStatus(ctx context.Context, id string, status do
 }
 
 func (s *RoomService) GetAvailableRooms(ctx context.Context, filter domain.RoomFilter, page, limit int) (*domain.RoomListResponse, error) {
-
 	availableStatus := domain.RoomStatusAvailable
 	filter.Status = &availableStatus
-
 	return s.GetRooms(ctx, filter, page, limit)
 }
 
@@ -129,7 +167,6 @@ func (s *RoomService) GetRoomsByFloor(ctx context.Context, floor int, page, limi
 }
 
 func (s *RoomService) SearchRooms(ctx context.Context, query string, page, limit int) (*domain.RoomListResponse, error) {
-
 	filter := domain.RoomFilter{}
 	return s.GetRooms(ctx, filter, page, limit)
 }
@@ -151,15 +188,4 @@ func (s *RoomService) roomToResponse(room *domain.Room) *domain.RoomResponse {
 		CreatedAt:   room.CreatedAt,
 		UpdatedAt:   room.UpdatedAt,
 	}
-}
-
-func parseIntWithDefault(s string, defaultValue int) int {
-	if s == "" {
-		return defaultValue
-	}
-	val, err := strconv.Atoi(s)
-	if err != nil {
-		return defaultValue
-	}
-	return val
 }

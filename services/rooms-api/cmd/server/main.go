@@ -2,14 +2,23 @@ package main
 
 import (
 	"log"
+	"os"
 	"rooms-api/config"
 	"rooms-api/controllers"
 	"rooms-api/domain"
+	"rooms-api/events"
 	"rooms-api/repositories"
 	"rooms-api/services"
 
 	"github.com/gin-gonic/gin"
 )
+
+func getEnv(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	return fallback
+}
 
 func main() {
 	// Initialize MySQL connection
@@ -26,11 +35,31 @@ func main() {
 	}
 	defer sqlDB.Close()
 
+	rabbitURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+
+	var publisher *events.EventPublisher
+
+	rabbitConn, err := config.InitRabbitMQ(rabbitURL)
+	if err != nil {
+		log.Printf("⚠️  Warning: No se pudo conectar a RabbitMQ: %v", err)
+		log.Println("⚠️  Los eventos no serán publicados")
+	} else {
+		defer rabbitConn.Close()
+
+		publisher, err = events.NewEventPublisher(rabbitConn)
+		if err != nil {
+			log.Printf("⚠️  Warning: Error inicializando event publisher: %v", err)
+		} else {
+			defer publisher.Close()
+			log.Println("✅ Event publisher inicializado correctamente")
+		}
+	}
+
 	// Initialize repository
 	roomRepo := repositories.NewRoomRepository(db)
 
-	// Initialize service
-	roomService := services.NewRoomService(roomRepo)
+	// Initialize service (ahora con publisher)
+	roomService := services.NewRoomService(roomRepo, publisher)
 
 	// Initialize controller
 	roomController := controllers.NewRoomController(roomService)
