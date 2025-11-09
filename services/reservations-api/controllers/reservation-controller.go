@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"reservations-api/domain"
 	"reservations-api/services"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,26 @@ type ReservationController struct {
 func NewReservationController(service services.ReservationService) *ReservationController {
 	return &ReservationController{service: service}
 }
+
+func (c *ReservationController) GetmyReservations(ctx *gin.Context) {
+	userIDStr := strings.TrimSpace(ctx.Param("user_id"))
+	if userIDStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user_id invalido"})
+		return
+	}
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "user_id invalido"})
+		return
+	}
+	reservations, err := c.service.GetmyReservations(ctx, uint(userID))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"reservations": reservations})
+}
+
 func (c *ReservationController) GetAllReservations(ctx *gin.Context) {
 	reservations, err := c.service.GetAllReservations(ctx)
 	if err != nil {

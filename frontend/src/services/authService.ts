@@ -1,7 +1,9 @@
 import api from '@/lib/axios';
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User } from '@/types';
 
+
 export const authService = {
+  
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await api.post<LoginResponse>('/login', credentials);
     return response.data;

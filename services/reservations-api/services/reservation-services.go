@@ -11,6 +11,7 @@ import (
 )
 
 type ReservationService interface {
+	GetmyReservations(ctx context.Context, userID uint) ([]domain.Reservation, error)
 	GetAllReservations(ctx context.Context) ([]domain.Reservation, error)
 	CreateReservation(ctx context.Context, dto domain.CreateReservationDTO) (domain.Reservation, error)
 	DeleteReservation(ctx context.Context, id string, reason string) error
@@ -28,6 +29,9 @@ func NewReservationService(repository repositories.ReservationRepository, publis
 	}
 }
 
+func (s *reservationService) GetmyReservations(ctx context.Context, userID uint) ([]domain.Reservation, error) {
+	return s.repository.GetmyReservations(ctx, userID)
+}
 func (s *reservationService) GetAllReservations(ctx context.Context) ([]domain.Reservation, error) {
 	return s.repository.GetAll(ctx)
 }

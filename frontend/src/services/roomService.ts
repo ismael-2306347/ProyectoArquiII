@@ -31,7 +31,10 @@ export const roomService = {
     const response = await api.get<RoomListResponse>(`/api/v1/rooms/available?${params.toString()}`);
     return response.data;
   },
-
+  async getRoomsPrice(id: string): Promise<number> {
+    const response = await api.get(`/api/v1/rooms/${id}`);
+    return response.data.price;
+  },
   async getRoomById(id: string): Promise<Room> {
     const response = await api.get<Room>(`/api/v1/rooms/${id}`);
     return response.data;

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<schema name="rooms-schema" version="1.6">
+  <!-- Campo único obligatorio -->
+  <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" />
+  
+  <!-- Campos de la habitación -->
+  <field name="room_number" type="string" indexed="true" stored="true" required="true" />
+  <field name="room_type" type="text_general" indexed="true" stored="true" />
+  <field name="capacity" type="pint" indexed="true" stored="true" />
+  <field name="price_per_night" type="pdouble" indexed="true" stored="true" />
+  <field name="status" type="string" indexed="true" stored="true" />
+  
+  <!-- Características para búsqueda -->
+  <field name="description" type="text_es" indexed="true" stored="true" />
+  <field name="amenities" type="text_general" indexed="true" stored="true" multiValued="true" />
+  <field name="floor" type="pint" indexed="true" stored="true" />
+  <field name="size_sqm" type="pdouble" indexed="true" stored="true" />
+  <field name="view_type" type="string" indexed="true" stored="true" />
+  
+  <!-- Disponibilidad y ocupación -->
+  <field name="is_available" type="boolean" indexed="true" stored="true" />
+  <field name="last_updated" type="pdate" indexed="true" stored="true" />
+  
+  <!-- Campo para búsqueda general -->
+  <field name="text" type="text_general" indexed="true" stored="false" multiValued="true" />
+  
+  <!-- Campo de versión (requerido por Solr) -->
+  <field name="_version_" type="plong" indexed="false" stored="false"/>
+  
+  <!-- Copy fields para búsqueda general -->
+  <copyField source="room_number" dest="text"/>
+  <copyField source="room_type" dest="text"/>
+  <copyField source="description" dest="text"/>
+  <copyField source="amenities" dest="text"/>
+  
+  <!-- Tipos de datos -->
+  <fieldType name="string" class="solr.StrField" sortMissingLast="true" docValues="true" />
+  <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true"/>
+  <fieldType name="pint" class="solr.IntPointField" docValues="true"/>
+  <fieldType name="pdouble" class="solr.DoublePointField" docValues="true"/>
+  <fieldType name="plong" class="solr.LongPointField" docValues="true"/>
+  <fieldType name="pdate" class="solr.DatePointField" docValues="true"/>
+  
+  <!-- Tipo para texto general -->
+  <fieldType name="text_general" class="solr.TextField" positionIncrementGap="100" multiValued="true">
+    <analyzer type="index">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+  
+  <!-- Tipo para texto en español -->
+  <fieldType name="text_es" class="solr.TextField" positionIncrementGap="100">
+    <analyzer type="index">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.StopFilterFactory" words="lang/stopwords_es.txt" ignoreCase="true"/>
+      <filter class="solr.SpanishLightStemFilterFactory"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.StopFilterFactory" words="lang/stopwords_es.txt" ignoreCase="true"/>
+      <filter class="solr.SpanishLightStemFilterFactory"/>
+    </analyzer>
+  </fieldType>
+</schema>
