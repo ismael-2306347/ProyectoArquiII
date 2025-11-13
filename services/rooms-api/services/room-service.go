@@ -5,18 +5,19 @@ import (
 	"rooms-api/domain"
 	"rooms-api/events"
 	"rooms-api/repositories"
-	"strconv"
 )
 
 type RoomService struct {
 	roomRepo  *repositories.RoomRepository
 	publisher *events.EventPublisher
+	cache     repositories.RoomCacheRepository
 }
 
-func NewRoomService(roomRepo *repositories.RoomRepository, publisher *events.EventPublisher) *RoomService {
+func NewRoomService(roomRepo *repositories.RoomRepository, publisher *events.EventPublisher, cache repositories.RoomCacheRepository) *RoomService {
 	return &RoomService{
 		roomRepo:  roomRepo,
 		publisher: publisher,
+		cache:     cache,
 	}
 }
 
@@ -40,6 +41,11 @@ func (s *RoomService) CreateRoom(ctx context.Context, req domain.CreateRoomReque
 		return nil, err
 	}
 
+	err = s.cache.Set(ctx, room.ID, *s.roomToResponse(room))
+	if err != nil {
+		return nil, err
+	}
+
 	// Publicar evento de creación
 	if s.publisher != nil {
 		go s.publisher.PublishRoomCreated(room)
@@ -48,11 +54,20 @@ func (s *RoomService) CreateRoom(ctx context.Context, req domain.CreateRoomReque
 	return s.roomToResponse(room), nil
 }
 
-func (s *RoomService) GetRoomByID(ctx context.Context, id string) (*domain.RoomResponse, error) {
+func (s *RoomService) GetRoomByID(ctx context.Context, id uint) (*domain.RoomResponse, error) {
+
+	cached, err := s.cache.Get(ctx, id)
+	if err == nil {
+		return &cached, nil
+	}
+
 	room, err := s.roomRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+
+	// Try to update the cache but don't fail the request if caching fails
+	_ = s.cache.Set(ctx, room.ID, *s.roomToResponse(room))
 
 	return s.roomToResponse(room), nil
 }
@@ -92,7 +107,7 @@ func (s *RoomService) GetRooms(ctx context.Context, filter domain.RoomFilter, pa
 	}, nil
 }
 
-func (s *RoomService) UpdateRoom(ctx context.Context, id string, req domain.UpdateRoomRequest) (*domain.RoomResponse, error) {
+func (s *RoomService) UpdateRoom(ctx context.Context, id uint, req domain.UpdateRoomRequest) (*domain.RoomResponse, error) {
 	// Obtener estado anterior para detectar cambios de status
 	oldRoom, err := s.roomRepo.GetByID(ctx, id)
 	if err != nil {
@@ -119,7 +134,7 @@ func (s *RoomService) UpdateRoom(ctx context.Context, id string, req domain.Upda
 	return s.roomToResponse(room), nil
 }
 
-func (s *RoomService) DeleteRoom(ctx context.Context, id string) error {
+func (s *RoomService) DeleteRoom(ctx context.Context, id uint) error {
 	// Obtener ID antes de eliminar
 	room, err := s.roomRepo.GetByID(ctx, id)
 	if err != nil {
@@ -139,7 +154,7 @@ func (s *RoomService) DeleteRoom(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *RoomService) UpdateRoomStatus(ctx context.Context, id string, status domain.RoomStatus) (*domain.RoomResponse, error) {
+func (s *RoomService) UpdateRoomStatus(ctx context.Context, id uint, status domain.RoomStatus) (*domain.RoomResponse, error) {
 	updateReq := domain.UpdateRoomRequest{
 		Status: &status,
 	}
@@ -173,7 +188,7 @@ func (s *RoomService) SearchRooms(ctx context.Context, query string, page, limit
 
 func (s *RoomService) roomToResponse(room *domain.Room) *domain.RoomResponse {
 	return &domain.RoomResponse{
-		ID:          strconv.FormatUint(uint64(room.ID), 10),
+		ID:          room.ID,
 		Number:      room.Number,
 		Type:        room.Type,
 		Status:      room.Status,

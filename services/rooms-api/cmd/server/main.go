@@ -3,6 +3,9 @@ package main
 import (
 	"log"
 	"os"
+	"strconv" // 👈 NUEVO
+	"time"    // 👈 NUEVO
+
 	"rooms-api/config"
 	"rooms-api/controllers"
 	"rooms-api/domain"
@@ -55,12 +58,30 @@ func main() {
 		}
 	}
 
+	// 🔹 MEMCACHED: inicializar repo de cache para rooms
+	memcachedHost := getEnv("MEMCACHED_HOST", "memcached")
+	memcachedPort := getEnv("MEMCACHED_PORT", "11211")
+	memcachedTTLStr := getEnv("MEMCACHED_TTL", "300")
+
+	memcachedTTL, err := strconv.Atoi(memcachedTTLStr)
+	if err != nil {
+		log.Printf("⚠️ TTL inválido en MEMCACHED_TTL (%s), usando 300s por defecto: %v", memcachedTTLStr, err)
+		memcachedTTL = 300
+	}
+
+	roomCacheRepo := repositories.NewRoomCacheRepository(memcachedHost, memcachedPort, time.Duration(memcachedTTL)*time.Second)
+	if roomCacheRepo == nil {
+		log.Printf("⚠️  Warning: No se pudo conectar a Memcached")
+		log.Println("⚠️  La cache no estará disponible")
+	} else {
+		log.Println("✅ Conectado a Memcached correctamente")
+	}
+
 	// Initialize repository
 	roomRepo := repositories.NewRoomRepository(db)
 
-	// Initialize service (ahora con publisher)
-	roomService := services.NewRoomService(roomRepo, publisher)
-
+	// Initialize service (ahora con cache + publisher)
+	roomService := services.NewRoomService(roomRepo, publisher, roomCacheRepo)
 	// Initialize controller
 	roomController := controllers.NewRoomController(roomService)
 
