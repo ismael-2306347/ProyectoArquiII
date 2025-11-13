@@ -47,7 +47,7 @@ func main() {
 	// Rutas
 	api := router.Group("/api")
 	{
-		api.GET("/users/:user_id/myreservations", reservationController.GetmyReservations)
+		api.GET("/reservations/users/:user_id/myreservations", reservationController.GetmyReservations)
 		api.GET("/reservations", reservationController.GetAllReservations)
 		api.POST("/reservations", reservationController.CreateReservation)
 		api.GET("/reservations/:id", reservationController.GetReservationByID)
