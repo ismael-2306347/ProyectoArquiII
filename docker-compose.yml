@@ -162,6 +162,9 @@ services:
       - DB_PASSWORD=roomspass
       - DB_NAME=roomsdb
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      - MEMCACHED_TTL=300
     ports:
       - "8081:8080"
 

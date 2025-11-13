@@ -79,7 +79,19 @@ func (c *RoomController) GetRoomByID(ctx *gin.Context) {
 		return
 	}
 
-	room, err := c.roomService.GetRoomByID(ctx.Request.Context(), id)
+	// Convertir id (string) a uint
+	idUint64, err := strconv.ParseUint(id, 10, 0)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.ErrorResponse{
+			Error:   "ID de habitación inválido",
+			Message: "El ID de la habitación debe ser un número",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+	idUint := uint(idUint64)
+
+	room, err := c.roomService.GetRoomByID(ctx.Request.Context(), idUint)
 	if err != nil {
 		statusCode := utils.GetHTTPStatus(err)
 		ctx.JSON(statusCode, utils.ErrorResponse{
@@ -259,7 +271,17 @@ func (c *RoomController) UpdateRoom(ctx *gin.Context) {
 		return
 	}
 
-	room, err := c.roomService.UpdateRoom(ctx.Request.Context(), id, req)
+	idUint64, err := strconv.ParseUint(id, 10, 0)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.ErrorResponse{
+			Error:   "ID de habitación inválido",
+			Message: "El ID de la habitación debe ser un número",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+	idUint := uint(idUint64)
+	room, err := c.roomService.UpdateRoom(ctx.Request.Context(), idUint, req)
 	if err != nil {
 		statusCode := utils.GetHTTPStatus(err)
 		ctx.JSON(statusCode, utils.ErrorResponse{
@@ -294,7 +316,19 @@ func (c *RoomController) DeleteRoom(ctx *gin.Context) {
 		return
 	}
 
-	err := c.roomService.DeleteRoom(ctx.Request.Context(), id)
+	// Convertir id (string) a uint
+	idUint64, err := strconv.ParseUint(id, 10, 0)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.ErrorResponse{
+			Error:   "ID de habitación inválido",
+			Message: "El ID de la habitación debe ser un número",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+	idUint := uint(idUint64)
+
+	err = c.roomService.DeleteRoom(ctx.Request.Context(), idUint)
 	if err != nil {
 		statusCode := utils.GetHTTPStatus(err)
 		ctx.JSON(statusCode, utils.ErrorResponse{
@@ -343,8 +377,17 @@ func (c *RoomController) UpdateRoomStatus(ctx *gin.Context) {
 		})
 		return
 	}
-
-	room, err := c.roomService.UpdateRoomStatus(ctx.Request.Context(), id, req.Status)
+	idUint64, err := strconv.ParseUint(id, 10, 0)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, utils.ErrorResponse{
+			Error:   "ID de habitación inválido",
+			Message: "El ID de la habitación debe ser un número",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+	idUint := uint(idUint64)
+	room, err := c.roomService.UpdateRoomStatus(ctx.Request.Context(), idUint, req.Status)
 	if err != nil {
 		statusCode := utils.GetHTTPStatus(err)
 		ctx.JSON(statusCode, utils.ErrorResponse{
