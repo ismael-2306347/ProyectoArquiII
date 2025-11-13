@@ -38,7 +38,7 @@ export const reservationService = {
 
   async getMyReservations(userId: string): Promise<{ reservations: Reservation[]}> {
     const response = await api.get<{ reservations: Reservation[]}>(
-      `/api/users/${userId}/myreservations`
+      `/api/reservations/users/${userId}/myreservations`
     );
     return response.data;
   },
