@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 	"os"
-	"strconv" // 👈 NUEVO
-	"time"    // 👈 NUEVO
+	"strconv"
+	"time"
 
 	"rooms-api/config"
 	"rooms-api/controllers"
@@ -77,11 +77,22 @@ func main() {
 		log.Println("✅ Conectado a Memcached correctamente")
 	}
 
+	// 🔹 SEARCH API CLIENT: inicializar cliente HTTP para search-api
+	searchAPIClient := config.NewSearchAPIClient()
+	if err := searchAPIClient.HealthCheck(); err != nil {
+		log.Printf("⚠️  Warning: No se pudo conectar a Search API: %v", err)
+		log.Println("⚠️  Las búsquedas complejas usarán MySQL directamente")
+		searchAPIClient = nil // Fallback a MySQL
+	} else {
+		log.Println("✅ Conectado a Search API correctamente")
+	}
+
 	// Initialize repository
 	roomRepo := repositories.NewRoomRepository(db)
 
-	// Initialize service (ahora con cache + publisher)
-	roomService := services.NewRoomService(roomRepo, publisher, roomCacheRepo)
+	// Initialize service (ahora con cache + publisher + searchAPIClient)
+	roomService := services.NewRoomService(roomRepo, publisher, roomCacheRepo, searchAPIClient)
+
 	// Initialize controller
 	roomController := controllers.NewRoomController(roomService)
 
@@ -103,7 +114,7 @@ func main() {
 		{
 			rooms.POST("", roomController.CreateRoom)
 			rooms.GET("", roomController.GetRooms)
-			rooms.GET("/available", roomController.GetAvailableRooms)
+			rooms.GET("/available", roomController.GetRoomsViaSearch)
 			rooms.GET("/number/:number", roomController.GetRoomByNumber)
 			rooms.GET("/:id", roomController.GetRoomByID)
 			rooms.PUT("/:id", roomController.UpdateRoom)
