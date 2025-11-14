@@ -4,44 +4,53 @@ import { Layout } from '@/components/layout/Layout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { roomService } from '@/services/roomService';
 import { useAuth } from '@/context/AuthContext';
 import type { Room, RoomFilter, RoomType } from '@/types';
 import { Wifi, Tv, Wind, Coffee, Users, MapPin, DollarSign } from 'lucide-react';
+import { roomService } from '@/services/roomService';
+
+type RoomSearchFilter = RoomFilter & {
+  q?: string;
+};
 
 export function Rooms() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState<RoomFilter>({
+  const [filters, setFilters] = useState<RoomSearchFilter>({
     page: 1,
     limit: 12,
+    q: '',
   });
 
   useEffect(() => {
     fetchRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const fetchRooms = async () => {
     setIsLoading(true);
     setError('');
     try {
+      // 👉 Ahora pegamos contra rooms-api (getAvailableRooms)
       const response = await roomService.getAvailableRooms(filters);
       setRooms(response.rooms || []);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar las habitaciones');
+      const message =
+        err?.response?.data?.error || 'Error al cargar las habitaciones';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFilterChange = (key: keyof RoomFilter, value: any) => {
-    setFilters(prev => ({
+  const handleFilterChange = (key: keyof RoomSearchFilter, value: any) => {
+    setFilters((prev) => ({
       ...prev,
       [key]: value || undefined,
-      page: 1, // Reset to first page when filters change
+      page: 1,
     }));
   };
 
@@ -61,6 +70,7 @@ export function Rooms() {
       deluxe: 'De Lujo',
       standard: 'Estándar',
     };
+
     return labels[type];
   };
 
@@ -68,7 +78,9 @@ export function Rooms() {
     <Layout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Habitaciones Disponibles</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Habitaciones Disponibles
+          </h1>
         </div>
 
         {/* Filters */}
@@ -77,7 +89,21 @@ export function Rooms() {
             <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Buscar
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Número, tipo, descripción..."
+                  value={filters.q || ''}
+                  onChange={(e) =>
+                    handleFilterChange('q', e.target.value || undefined)
+                  }
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Habitación
@@ -104,7 +130,12 @@ export function Rooms() {
                   type="number"
                   placeholder="$0"
                   value={filters.min_price || ''}
-                  onChange={(e) => handleFilterChange('min_price', parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'min_price',
+                      e.target.value ? parseFloat(e.target.value) : undefined
+                    )
+                  }
                 />
               </div>
 
@@ -116,7 +147,12 @@ export function Rooms() {
                   type="number"
                   placeholder="$999"
                   value={filters.max_price || ''}
-                  onChange={(e) => handleFilterChange('max_price', parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'max_price',
+                      e.target.value ? parseFloat(e.target.value) : undefined
+                    )
+                  }
                 />
               </div>
 
@@ -126,9 +162,14 @@ export function Rooms() {
                 </label>
                 <Input
                   type="number"
-                  placeholder="Cualquiera"
+                  placeholder="Todos"
                   value={filters.floor || ''}
-                  onChange={(e) => handleFilterChange('floor', parseInt(e.target.value))}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'floor',
+                      e.target.value ? parseInt(e.target.value, 10) : undefined
+                    )
+                  }
                 />
               </div>
             </div>
@@ -139,34 +180,59 @@ export function Rooms() {
                   type="checkbox"
                   className="rounded text-primary-600 focus:ring-primary-500"
                   checked={filters.has_wifi || false}
-                  onChange={(e) => handleFilterChange('has_wifi', e.target.checked || undefined)}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'has_wifi',
+                      e.target.checked || undefined
+                    )
+                  }
                 />
                 <span className="text-sm text-gray-700">WiFi</span>
               </label>
+
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   className="rounded text-primary-600 focus:ring-primary-500"
                   checked={filters.has_ac || false}
-                  onChange={(e) => handleFilterChange('has_ac', e.target.checked || undefined)}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'has_ac',
+                      e.target.checked || undefined
+                    )
+                  }
                 />
-                <span className="text-sm text-gray-700">Aire Acondicionado</span>
+                <span className="text-sm text-gray-700">
+                  Aire Acondicionado
+                </span>
               </label>
+
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   className="rounded text-primary-600 focus:ring-primary-500"
                   checked={filters.has_tv || false}
-                  onChange={(e) => handleFilterChange('has_tv', e.target.checked || undefined)}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'has_tv',
+                      e.target.checked || undefined
+                    )
+                  }
                 />
                 <span className="text-sm text-gray-700">TV</span>
               </label>
+
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   className="rounded text-primary-600 focus:ring-primary-500"
                   checked={filters.has_minibar || false}
-                  onChange={(e) => handleFilterChange('has_minibar', e.target.checked || undefined)}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'has_minibar',
+                      e.target.checked || undefined
+                    )
+                  }
                 />
                 <span className="text-sm text-gray-700">Minibar</span>
               </label>
@@ -177,7 +243,7 @@ export function Rooms() {
         {/* Rooms Grid */}
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
             <p className="mt-4 text-gray-600">Cargando habitaciones...</p>
           </div>
         ) : error ? (
@@ -187,18 +253,25 @@ export function Rooms() {
         ) : rooms.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-gray-600">No se encontraron habitaciones con los filtros seleccionados.</p>
+              <p className="text-gray-600">
+                No se encontraron habitaciones con los filtros seleccionados.
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rooms.map((room) => (
-              <Card key={room.id} className="hover:shadow-lg transition-shadow">
+              <Card
+                key={room.id}
+                className="hover:shadow-lg transition-shadow"
+              >
                 <CardContent className="p-0">
                   <div className="h-48 bg-gradient-to-br from-primary-400 to-primary-600 rounded-t-lg flex items-center justify-center">
                     <div className="text-center text-white">
                       <div className="text-5xl font-bold">#{room.number}</div>
-                      <div className="text-lg mt-2">{getRoomTypeLabel(room.type)}</div>
+                      <div className="text-lg mt-2">
+                        {getRoomTypeLabel(room.type)}
+                      </div>
                     </div>
                   </div>
 
@@ -206,7 +279,9 @@ export function Rooms() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2 text-gray-600">
                         <Users className="w-4 h-4" />
-                        <span className="text-sm">{room.capacity} personas</span>
+                        <span className="text-sm">
+                          {room.capacity} personas
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2 text-gray-600">
                         <MapPin className="w-4 h-4" />
@@ -252,7 +327,9 @@ export function Rooms() {
                           <span className="text-2xl font-bold text-gray-900">
                             {room.price.toFixed(2)}
                           </span>
-                          <span className="text-gray-600 text-sm">/noche</span>
+                          <span className="text-gray-600 text-sm">
+                            /noche
+                          </span>
                         </div>
                         <Button
                           variant="primary"

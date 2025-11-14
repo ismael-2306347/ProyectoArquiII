@@ -224,7 +224,7 @@ services:
       - PORT=8083
       - GIN_MODE=release
     ports:
-      - "8083:8083"
+      - "8083:8080"
 
 volumes:
   mysql_users_data:
