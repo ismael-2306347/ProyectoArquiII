@@ -34,8 +34,8 @@ func NewSolrRepository(cfg *config.SolrConfig) *SolrRepository {
 // SolrResponse representa la respuesta de Solr para búsquedas
 type SolrResponse struct {
 	Response struct {
-		NumFound int64                   `json:"numFound"`
-		Start    int                     `json:"start"`
+		NumFound int64                     `json:"numFound"`
+		Start    int                       `json:"start"`
 		Docs     []domain.SolrRoomDocument `json:"docs"`
 	} `json:"response"`
 }
@@ -108,13 +108,12 @@ func (r *SolrRepository) buildSolrQuery(req *domain.SearchRoomsRequest) string {
 	}
 
 	if req.MinPrice != nil && req.MaxPrice != nil {
-		filters = append(filters, fmt.Sprintf("price:[%f TO %f]", *req.MinPrice, *req.MaxPrice))
+		filters = append(filters, fmt.Sprintf("price:[%.0f TO %.0f]", *req.MinPrice, *req.MaxPrice))
 	} else if req.MinPrice != nil {
-		filters = append(filters, fmt.Sprintf("price:[%f TO *]", *req.MinPrice))
+		filters = append(filters, fmt.Sprintf("price:[%.0f TO *]", *req.MinPrice))
 	} else if req.MaxPrice != nil {
-		filters = append(filters, fmt.Sprintf("price:[* TO %f]", *req.MaxPrice))
+		filters = append(filters, fmt.Sprintf("price:[* TO %.0f]", *req.MaxPrice))
 	}
-
 	if req.HasWifi != nil {
 		filters = append(filters, fmt.Sprintf("has_wifi:%t", *req.HasWifi))
 	}
