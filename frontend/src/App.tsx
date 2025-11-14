@@ -53,6 +53,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+        <Route
+           path="/rooms"
+           element={
+            <ProtectedRoute>
+              <Rooms />
+             </ProtectedRoute>
+            }
+          />
+
 
           {/* Redirect unknown routes to home */}
           <Route path="*" element={<Navigate to="/" replace />} />

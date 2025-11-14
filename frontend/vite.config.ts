@@ -32,6 +32,10 @@ export default defineConfig({
         target: 'http://localhost:8082',
         changeOrigin: true,
       },
+      '/search-api': {
+        target: 'http://localhost:8083',   // o la URL interna del container search-api
+        changeOrigin: true,
+      },
     },
   },
 })
