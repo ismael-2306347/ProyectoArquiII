@@ -3,130 +3,136 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+
 	"search-api/config"
+	"search-api/consumers"
 	"search-api/controllers"
-	"search-api/events"
 	"search-api/repositories"
 	"search-api/services"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
 func main() {
-	// Configuración
-	solrURL := getEnv("SOLR_URL", "http://localhost:8983/solr/rooms_core")
-	memcachedHost := getEnv("MEMCACHED_HOST", "localhost")
-	memcachedPort := getEnv("MEMCACHED_PORT", "11211")
-	rabbitMQURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-	_ = rabbitMQURL
+	log.Println("Starting search-api...")
 
-	// Inicializar Solr
-	solrClient := config.NewSolrClient(solrURL)
+	// Cargar configuraciones
+	solrConfig := config.NewSolrConfig()
+	rabbitMQConfig := config.NewRabbitMQConfig()
+	cacheConfig := config.NewCacheConfig()
 
-	// Inicializar Memcached
-	cacheRepo := repositories.NewCacheRepository(
-		memcachedHost,
-		memcachedPort,
-		5*time.Minute,
-	)
+	log.Printf("Solr URL: %s", solrConfig.GetCoreURL())
+	log.Printf("RabbitMQ URL: %s", rabbitMQConfig.URL)
+	log.Printf("Memcached: %s", cacheConfig.GetMemcachedAddress())
 
-	// Inicializar RabbitMQ
-	rabbitConn := config.InitRabbitMQ()
-	if rabbitConn == nil {
-		log.Fatalf("Error conectando a RabbitMQ: nil connection")
-	}
-	defer rabbitConn.Close()
+	// Inicializar clientes
+	roomsAPIClient := config.NewRoomsAPIClient()
+
+	// Inicializar cachés
+	localCache := cacheConfig.NewLocalCache()
+	memcachedClient := cacheConfig.NewMemcachedClient()
 
 	// Inicializar repositorios
-	searchRepo := repositories.NewSearchRepository(solrClient)
+	solrRepo := repositories.NewSolrRepository(solrConfig)
+	localCacheRepo := repositories.NewLocalCacheRepository(localCache)
+	distributedCacheRepo := repositories.NewDistributedCacheRepository(memcachedClient)
 
 	// Inicializar servicios
-	searchService := services.NewSearchService(searchRepo, cacheRepo)
-	indexService := services.NewIndexService(searchRepo)
-
-	// Inicializar event consumer
-	eventConsumer, err := events.NewEventConsumer(rabbitConn, indexService)
-	if err != nil {
-		log.Fatalf("Error inicializando event consumer: %v", err)
-	}
-
-	// Iniciar consumidor de eventos en goroutine
-	go func() {
-		log.Println("🎧 Iniciando consumidor de eventos...")
-		if err := eventConsumer.Start(); err != nil {
-			log.Printf("Error en event consumer: %v", err)
-		}
-	}()
+	searchService := services.NewSearchService(
+		solrRepo,
+		localCacheRepo,
+		distributedCacheRepo,
+		cacheConfig,
+	)
 
 	// Inicializar controladores
 	searchController := controllers.NewSearchController(searchService)
 
-	// Provide a lightweight local index controller (stub) so the binary compiles even if
-	// controllers.NewIndexController is not implemented; replace with real implementation later.
-	indexController := struct {
-		IndexRoom       func(*gin.Context)
-		FullReindex     func(*gin.Context)
-		DeleteFromIndex func(*gin.Context)
-	}{
-		IndexRoom: func(c *gin.Context) {
-			id := c.Param("id")
-			// TODO: call indexService to index a single room by id
-			c.JSON(501, gin.H{"error": "IndexRoom not implemented", "id": id})
-		},
-		FullReindex: func(c *gin.Context) {
-			// TODO: call indexService to perform full reindex
-			c.JSON(501, gin.H{"error": "FullReindex not implemented"})
-		},
-		DeleteFromIndex: func(c *gin.Context) {
-			id := c.Param("id")
-			// TODO: call indexService to delete room from index by id
-			c.JSON(501, gin.H{"error": "DeleteFromIndex not implemented", "id": id})
-		},
+	// Inicializar consumer de RabbitMQ
+	roomsConsumer := consumers.NewRoomsConsumer(
+		rabbitMQConfig,
+		roomsAPIClient,
+		searchService,
+	)
+
+	// Iniciar consumer en goroutine
+	go func() {
+		if err := roomsConsumer.Start(); err != nil {
+			log.Printf("Failed to start RabbitMQ consumer: %v", err)
+		}
+	}()
+
+	// Configurar Gin
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Configurar router
 	router := gin.Default()
 
-	// Health check
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":  "ok",
-			"service": "search-api",
-		})
-	})
+	// Middleware de CORS
+	router.Use(corsMiddleware())
 
-	// API Routes
-	api := router.Group("/api/v1")
+	// Health check
+	router.GET("/health", searchController.HealthCheck)
+
+	// Rutas API
+	api := router.Group("/api")
 	{
-		// Búsqueda de habitaciones
 		search := api.Group("/search")
 		{
+			// Endpoint de búsqueda (opcional: agregar auth con utils.OptionalAuthMiddleware())
 			search.GET("/rooms", searchController.SearchRooms)
-			search.GET("/rooms/suggestions", searchController.GetSuggestions)
-			search.GET("/rooms/facets", searchController.GetFacets)
-		}
 
-		// Indexación manual (admin)
-		admin := api.Group("/admin")
-		{
-			admin.POST("/index/room/:id", indexController.IndexRoom)
-			admin.POST("/index/rooms/full", indexController.FullReindex)
-			admin.DELETE("/index/room/:id", indexController.DeleteFromIndex)
+			// Ejemplo con autenticación obligatoria (descomentá si querés protegerlo):
+			// search.GET("/rooms", utils.AuthMiddleware(), searchController.SearchRooms)
 		}
 	}
 
-	// Iniciar servidor
-	port := getEnv("PORT", "8080")
-	log.Printf("🚀 Search API iniciando en puerto %s", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Error iniciando servidor: %v", err)
+	// Puerto
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8083"
+	}
+
+	log.Printf("Starting HTTP server on port %s", port)
+
+	// Manejar señales de cierre graceful
+	go func() {
+		if err := router.Run(":" + port); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Esperar señal de cierre
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	// Cerrar consumer de RabbitMQ
+	if err := roomsConsumer.Stop(); err != nil {
+		log.Printf("Error stopping consumer: %v", err)
+	}
+
+	log.Println("Server stopped")
+}
+
+// corsMiddleware configura CORS
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
 	}
 }
