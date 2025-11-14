@@ -466,3 +466,73 @@ func (c *RoomController) GetAvailableRooms(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, rooms)
 }
+
+func (c *RoomController) GetRoomsViaSearch(ctx *gin.Context) {
+	// Parsear parámetros de consulta
+	filter := domain.RoomFilter{}
+	if roomType := ctx.Query("type"); roomType != "" {
+		filter.Type = (*domain.RoomType)(&roomType)
+	}
+	if status := ctx.Query("status"); status != "" {
+		filter.Status = (*domain.RoomStatus)(&status)
+	}
+	if floorStr := ctx.Query("floor"); floorStr != "" {
+		if floor, err := strconv.Atoi(floorStr); err == nil {
+			filter.Floor = &floor
+		}
+	}
+	if minPriceStr := ctx.Query("min_price"); minPriceStr != "" {
+		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			filter.MinPrice = &minPrice
+		}
+	}
+	if maxPriceStr := ctx.Query("max_price"); maxPriceStr != "" {
+		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			filter.MaxPrice = &maxPrice
+		}
+	}
+	if hasWifiStr := ctx.Query("has_wifi"); hasWifiStr != "" {
+		if hasWifi, err := strconv.ParseBool(hasWifiStr); err == nil {
+			filter.HasWifi = &hasWifi
+		}
+	}
+	if hasACStr := ctx.Query("has_ac"); hasACStr != "" {
+		if hasAC, err := strconv.ParseBool(hasACStr); err == nil {
+			filter.HasAC = &hasAC
+		}
+	}
+	if hasTVStr := ctx.Query("has_tv"); hasTVStr != "" {
+		if hasTV, err := strconv.ParseBool(hasTVStr); err == nil {
+			filter.HasTV = &hasTV
+		}
+	}
+	if hasMinibarStr := ctx.Query("has_minibar"); hasMinibarStr != "" {
+		if hasMinibar, err := strconv.ParseBool(hasMinibarStr); err == nil {
+			filter.HasMinibar = &hasMinibar
+		}
+	}
+	// Parsear parámetros de paginación
+	page := 1
+	if pageStr := ctx.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	limit := 10
+	if limitStr := ctx.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+	rooms, err := c.roomService.GetRoomsViaSearch(ctx.Request.Context(), filter, page, limit)
+	if err != nil {
+		statusCode := utils.GetHTTPStatus(err)
+		ctx.JSON(statusCode, utils.ErrorResponse{
+			Error:   err.Error(),
+			Message: err.Error(),
+			Code:    statusCode,
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, rooms)
+}

@@ -159,6 +159,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      
     environment:
       - DB_HOST=mysql-rooms
       - DB_PORT=3306
@@ -169,6 +170,7 @@ services:
       - MEMCACHED_HOST=memcached
       - MEMCACHED_PORT=11211
       - MEMCACHED_TTL=300
+      - SEARCH_API_BASE_URL=http://search-api:8083
     ports:
       - "8081:8080"
 
