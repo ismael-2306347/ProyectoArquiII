@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import AdminRoute from '@/components/auth/AdminRoute';
 
 // Pages
 import { Login } from '@/pages/Login';
@@ -10,6 +11,8 @@ import { Home } from '@/pages/Home';
 import { Rooms } from '@/pages/Rooms';
 import { ReserveRoom } from '@/pages/ReserveRoom';
 import { MyReservations } from '@/pages/MyReservations';
+import AdminRoomList from '@/pages/admin/AdminRoomList';
+import AdminRoomForm from '@/pages/admin/AdminRoomForm';
 
 function App() {
   return (
@@ -51,6 +54,32 @@ function App() {
               <ProtectedRoute>
                 <MyReservations />
               </ProtectedRoute>
+            }
+          />
+
+          {/* Admin routes */}
+          <Route
+            path="/admin/rooms"
+            element={
+              <AdminRoute>
+                <AdminRoomList />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/rooms/new"
+            element={
+              <AdminRoute>
+                <AdminRoomForm />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/rooms/:id"
+            element={
+              <AdminRoute>
+                <AdminRoomForm />
+              </AdminRoute>
             }
           />
 
