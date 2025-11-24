@@ -22,8 +22,8 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
-      // Rooms API
-      '/api/v1/rooms': {
+      // Rooms API (including admin routes)
+      '/api/v1': {
         target: 'http://localhost:8081',
         changeOrigin: true,
       },

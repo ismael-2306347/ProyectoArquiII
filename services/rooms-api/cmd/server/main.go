@@ -9,6 +9,7 @@ import (
 	"rooms-api/events"
 	"rooms-api/repositories"
 	"rooms-api/services"
+	"rooms-api/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -67,6 +68,21 @@ func main() {
 	// Setup Gin router
 	r := gin.Default()
 
+	// CORS middleware
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -78,16 +94,26 @@ func main() {
 	// API routes
 	api := r.Group("/api/v1")
 	{
+		// Public routes (read-only)
 		rooms := api.Group("/rooms")
 		{
-			rooms.POST("", roomController.CreateRoom)
 			rooms.GET("", roomController.GetRooms)
 			rooms.GET("/available", roomController.GetAvailableRooms)
 			rooms.GET("/number/:number", roomController.GetRoomByNumber)
 			rooms.GET("/:id", roomController.GetRoomByID)
-			rooms.PUT("/:id", roomController.UpdateRoom)
-			rooms.PATCH("/:id/status", roomController.UpdateRoomStatus)
-			rooms.DELETE("/:id", roomController.DeleteRoom)
+		}
+
+		// Protected admin routes
+		admin := api.Group("/admin")
+		admin.Use(utils.AuthMiddleware())
+		admin.Use(utils.AdminMiddleware())
+		{
+			admin.POST("/rooms", roomController.CreateRoom)
+			admin.PUT("/rooms/:id", roomController.UpdateRoom)
+			admin.PATCH("/rooms/:id/status", roomController.UpdateRoomStatus)
+			admin.DELETE("/rooms/:id", roomController.DeleteRoom)
+			admin.GET("/rooms", roomController.GetRooms)
+			admin.GET("/rooms/:id", roomController.GetRoomByID)
 		}
 	}
 

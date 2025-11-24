@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { Hotel, User, LogOut, Home, Calendar } from 'lucide-react';
+import { Hotel, User, LogOut, Home, Calendar, Settings } from 'lucide-react';
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -46,6 +46,15 @@ export function Navbar() {
                   <Calendar className="w-4 h-4" />
                   <span>Mis Reservas</span>
                 </Link>
+                {user?.role === 'admin' && (
+                  <Link
+                    to="/admin/rooms"
+                    className="flex items-center space-x-1 bg-blue-600 text-white hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Admin Panel</span>
+                  </Link>
+                )}
               </div>
             )}
           </div>

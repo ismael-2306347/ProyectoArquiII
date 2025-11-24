@@ -79,7 +79,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -100,7 +100,7 @@ services:
       - solr-precreate
       - rooms_core
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/rooms_core/admin/ping"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8983/solr/rooms_core/admin/ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -128,7 +128,7 @@ services:
       - DB_USER=user
       - DB_PASSWORD=userpass
       - DB_NAME=usersdb
-      - JWT_SECRET=supersecreto_cámbialo
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - MEMCACHED_HOST=memcached
       - MEMCACHED_PORT=11211
       - MEMCACHED_TTL=600
@@ -161,6 +161,7 @@ services:
       - DB_USER=roomsuser
       - DB_PASSWORD=roomspass
       - DB_NAME=roomsdb
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     ports:
       - "8081:8080"
