@@ -30,7 +30,7 @@ type UpdateRoomRequest struct {
 }
 
 type RoomResponse struct {
-	ID          string     `json:"id"`
+	ID          uint       `json:"id"`
 	Number      string     `json:"number"`
 	Type        RoomType   `json:"type"`
 	Status      RoomStatus `json:"status"`

@@ -3,6 +3,9 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
+	"time"
+
 	"rooms-api/config"
 	"rooms-api/controllers"
 	"rooms-api/domain"
@@ -56,11 +59,40 @@ func main() {
 		}
 	}
 
+	// 🔹 MEMCACHED: inicializar repo de cache para rooms
+	memcachedHost := getEnv("MEMCACHED_HOST", "memcached")
+	memcachedPort := getEnv("MEMCACHED_PORT", "11211")
+	memcachedTTLStr := getEnv("MEMCACHED_TTL", "300")
+
+	memcachedTTL, err := strconv.Atoi(memcachedTTLStr)
+	if err != nil {
+		log.Printf("⚠️ TTL inválido en MEMCACHED_TTL (%s), usando 300s por defecto: %v", memcachedTTLStr, err)
+		memcachedTTL = 300
+	}
+
+	roomCacheRepo := repositories.NewRoomCacheRepository(memcachedHost, memcachedPort, time.Duration(memcachedTTL)*time.Second)
+	if roomCacheRepo == nil {
+		log.Printf("⚠️  Warning: No se pudo conectar a Memcached")
+		log.Println("⚠️  La cache no estará disponible")
+	} else {
+		log.Println("✅ Conectado a Memcached correctamente")
+	}
+
+	// 🔹 SEARCH API CLIENT: inicializar cliente HTTP para search-api
+	searchAPIClient := config.NewSearchAPIClient()
+	if err := searchAPIClient.HealthCheck(); err != nil {
+		log.Printf("⚠️  Warning: No se pudo conectar a Search API: %v", err)
+		log.Println("⚠️  Las búsquedas complejas usarán MySQL directamente")
+		searchAPIClient = nil // Fallback a MySQL
+	} else {
+		log.Println("✅ Conectado a Search API correctamente")
+	}
+
 	// Initialize repository
 	roomRepo := repositories.NewRoomRepository(db)
 
-	// Initialize service (ahora con publisher)
-	roomService := services.NewRoomService(roomRepo, publisher)
+	// Initialize service (ahora con cache + publisher + searchAPIClient)
+	roomService := services.NewRoomService(roomRepo, publisher, roomCacheRepo, searchAPIClient)
 
 	// Initialize controller
 	roomController := controllers.NewRoomController(roomService)
@@ -98,7 +130,7 @@ func main() {
 		rooms := api.Group("/rooms")
 		{
 			rooms.GET("", roomController.GetRooms)
-			rooms.GET("/available", roomController.GetAvailableRooms)
+			rooms.GET("/available", roomController.GetRoomsViaSearch)
 			rooms.GET("/number/:number", roomController.GetRoomByNumber)
 			rooms.GET("/:id", roomController.GetRoomByID)
 		}

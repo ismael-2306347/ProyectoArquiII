@@ -1,320 +1,342 @@
-# Search API - Microservicio de Búsqueda
+# Search API - Microservicio de Búsqueda con Solr
 
-API de búsqueda avanzada para el sistema de reservas de habitaciones utilizando Apache Solr.
+Microservicio de búsqueda para el sistema de reservas de hotel, usando Apache Solr como motor de búsqueda, doble caché (CCache local + Memcached distribuido), y sincronización en tiempo real vía RabbitMQ.
 
-## 🚀 Características
+## Características
 
-- **Búsqueda full-text** con Apache Solr
-- **Caché inteligente** con Memcached
-- **Sincronización automática** vía RabbitMQ
-- **Filtros avanzados** (precio, capacidad, amenidades)
-- **Autocompletado** en tiempo real
-- **Facetas dinámicas** para filtros
+- **Motor de búsqueda**: Apache Solr 9.5 para búsquedas avanzadas y filtrado
+- **Caché multinivel**:
+  - CCache (local, in-memory, TTL 60s)
+  - Memcached (distribuido, TTL 300s)
+- **Sincronización en tiempo real**: Consumer de RabbitMQ que escucha eventos de rooms-api
+- **Autenticación**: Soporte JWT (opcional) para proteger endpoints
+- **API RESTful**: Endpoint de búsqueda con filtros, ordenamiento y paginación
 
-## 📋 Requisitos
+## Arquitectura
 
-- Go 1.21+
-- Apache Solr 9.5
-- Memcached
-- RabbitMQ
-- Rooms API (para reindexación)
+```
+┌─────────────┐
+│  Frontend   │
+└─────┬───────┘
+      │ GET /api/search/rooms
+      │
+┌─────▼──────────────────────────────────────────────┐
+│              Search API (Go + Gin)                  │
+│                                                      │
+│  ┌────────────┐  ┌──────────────┐  ┌─────────────┐│
+│  │ Controller │→ │   Service    │→ │ Repositories││
+│  └────────────┘  └──────────────┘  └─────────────┘│
+│                         │                           │
+│         ┌───────────────┼────────────────┐         │
+│         │               │                │         │
+│    ┌────▼────┐    ┌────▼─────┐    ┌────▼────┐    │
+│    │ CCache  │    │ Memcached│    │  Solr   │    │
+│    │ (Local) │    │(Distrib.)│    │ (Search)│    │
+│    └─────────┘    └──────────┘    └─────────┘    │
+│                                                     │
+│         RabbitMQ Consumer (rooms events)           │
+│                      │                              │
+└──────────────────────┼──────────────────────────────┘
+                       │
+              ┌────────▼─────────┐
+              │   RabbitMQ       │
+              │  Exchange:rooms  │
+              │                  │
+              │  • room.created  │
+              │  • room.updated  │
+              │  • room.deleted  │
+              └────────▲─────────┘
+                       │
+              ┌────────┴─────────┐
+              │    Rooms API     │
+              │  (Publisher)     │
+              └──────────────────┘
+```
 
-## 🛠️ Instalación
+## Estructura del Proyecto
 
-### 1. Preparar estructura de directorios
+```
+search-api/
+├── cmd/server/main.go              # Entry point
+├── controllers/
+│   └── search-controller.go        # Handlers HTTP
+├── services/
+│   └── search-service.go           # Lógica de negocio
+├── repositories/
+│   ├── solr-repository.go          # Acceso a Solr
+│   ├── cache-local-repo.go         # CCache
+│   └── cache-distributed-repo.go   # Memcached
+├── consumers/
+│   └── rooms-consumer.go           # Consumer RabbitMQ
+├── domain/
+│   ├── room_search.go              # Modelos Solr
+│   └── dto.go                      # DTOs request/response
+├── config/
+│   ├── solr.go                     # Config Solr
+│   ├── rabbitmq.go                 # Config RabbitMQ
+│   ├── cache.go                    # Config cachés
+│   └── http_clients.go             # Cliente rooms-api
+├── utils/
+│   ├── jwt.go                      # Validación JWT
+│   └── errors.go                   # Errores custom
+├── scripts/
+│   ├── schema.json                 # Schema de Solr
+│   └── README.md                   # Docs de Solr
+├── Dockerfile
+├── go.mod
+└── README.md
+```
+
+## Variables de Entorno
 
 ```bash
-mkdir -p services/search-api/{controllers,services,repositories,domain,events,config}
-mkdir -p solr/configsets/rooms_core/conf
+# Solr
+SOLR_URL=http://localhost:8983/solr
+SOLR_CORE=rooms-core
+
+# Memcached
+MEMCACHED_HOST=localhost
+MEMCACHED_PORT=11211
+LOCAL_CACHE_TTL_SECONDS=60
+DISTRIBUTED_CACHE_TTL_SECONDS=300
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+
+# Rooms API (para sincronización)
+ROOMS_API_BASE_URL=http://localhost:8081
+
+# JWT (mismo secret que users-api)
+JWT_SECRET=supersecreto_cámbialo
+
+# Server
+PORT=8083
+GIN_MODE=release
 ```
 
-### 2. Copiar archivos de configuración de Solr
+## API Endpoints
 
-Coloca el archivo `managed-schema.xml` en:
-```
-solr/configsets/rooms_core/conf/managed-schema.xml
-```
+### Búsqueda de Habitaciones
 
-### 3. Inicializar módulo Go
+**GET** `/api/search/rooms`
 
+Query Parameters:
+- `q` (string): Texto libre para buscar en número, tipo, descripción
+- `type` (string): Filtrar por tipo (single, double, suite, deluxe, standard)
+- `status` (string): Filtrar por estado (available, occupied, maintenance, reserved)
+- `floor` (int): Filtrar por piso
+- `min_price` (float): Precio mínimo
+- `max_price` (float): Precio máximo
+- `has_wifi` (bool): Filtrar por WiFi
+- `has_ac` (bool): Filtrar por aire acondicionado
+- `has_tv` (bool): Filtrar por TV
+- `has_minibar` (bool): Filtrar por minibar
+- `sort` (string): Campo de ordenamiento (price, -price, floor, -floor, capacity, -capacity)
+- `page` (int): Número de página (default: 1)
+- `limit` (int): Tamaño de página (default: 10, max: 50)
+
+Ejemplo:
 ```bash
-cd services/search-api
-go mod init search-api
-go mod tidy
+curl "http://localhost:8083/api/search/rooms?status=available&has_wifi=true&min_price=50&max_price=200&sort=-price&page=1&limit=10"
 ```
 
-### 4. Compilar
-
-```bash
-go build -o search-api
-```
-
-## 🐳 Docker Compose
-
-El servicio está configurado en `docker-compose.yml`:
-
-```yaml
-search-api:
-  build:
-    context: ./services/search-api
-    dockerfile: dockerfile
-  container_name: search-api
-  restart: always
-  depends_on:
-    solr:
-      condition: service_healthy
-    memcached:
-      condition: service_started
-    rabbitmq:
-      condition: service_healthy
-  environment:
-    - SOLR_URL=http://solr:8983/solr/rooms_core
-    - MEMCACHED_HOST=memcached
-    - MEMCACHED_PORT=11211
-    - MEMCACHED_TTL=300
-    - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-    - ROOMS_API_URL=http://rooms-api:8080
-  ports:
-    - "8083:8080"
-```
-
-## 🔌 Endpoints
-
-### Búsqueda
-
-#### `GET /api/v1/search/rooms`
-
-Busca habitaciones con filtros avanzados.
-
-**Query Parameters:**
-- `q`: Búsqueda por texto libre
-- `min_price`: Precio mínimo por noche
-- `max_price`: Precio máximo por noche
-- `min_capacity`: Capacidad mínima
-- `room_type`: Tipo de habitación
-- `is_available`: Solo disponibles (true/false)
-- `floor`: Número de piso
-- `has_wifi`: Tiene WiFi (true/false)
-- `has_ac`: Tiene aire acondicionado (true/false)
-- `has_tv`: Tiene TV (true/false)
-- `has_minibar`: Tiene minibar (true/false)
-- `page`: Número de página (default: 1)
-- `limit`: Resultados por página (default: 10, max: 100)
-- `sort`: Ordenamiento (price_asc, price_desc, capacity_asc, capacity_desc)
-
-**Ejemplo:**
-```bash
-curl "http://localhost:8083/api/v1/search/rooms?q=suite&min_price=100&max_price=300&is_available=true&page=1&limit=10"
-```
-
-**Respuesta:**
+Respuesta:
 ```json
 {
-  "total_results": 25,
+  "page": 1,
+  "limit": 10,
+  "total": 45,
   "results": [
     {
       "id": "1",
-      "room_number": "101",
-      "room_type": "suite",
-      "capacity": 2,
-      "price_per_night": 250.00,
+      "number": "101",
+      "type": "double",
       "status": "available",
-      "description": "Suite de lujo con vista al mar",
-      "amenities": ["WiFi", "Aire Acondicionado", "TV", "Minibar"],
+      "price": 150.00,
+      "capacity": 2,
       "floor": 1,
-      "is_available": true
+      "has_wifi": true,
+      "has_ac": true,
+      "has_tv": true,
+      "has_minibar": false
     }
-  ],
-  "page": 1,
-  "page_size": 10,
-  "total_pages": 3
+  ]
 }
 ```
 
-#### `GET /api/v1/search/rooms/suggestions`
+### Health Check
 
-Obtiene sugerencias de autocompletado.
+**GET** `/health`
 
-**Query Parameters:**
-- `q`: Prefijo de búsqueda (requerido)
-- `limit`: Máximo de sugerencias (default: 10, max: 20)
-
-**Ejemplo:**
-```bash
-curl "http://localhost:8083/api/v1/search/rooms/suggestions?q=sui&limit=5"
-```
-
-**Respuesta:**
+Respuesta:
 ```json
 {
-  "suggestions": ["suite", "suite deluxe", "suite presidential"]
+  "status": "healthy",
+  "service": "search-api"
 }
 ```
 
-#### `GET /api/v1/search/rooms/facets`
+## Instalación y Ejecución
 
-Obtiene facetas para filtros dinámicos.
+### Con Docker Compose (Recomendado)
 
-**Ejemplo:**
 ```bash
-curl "http://localhost:8083/api/v1/search/rooms/facets"
+# Desde el directorio raíz del proyecto
+docker-compose up -d solr memcached rabbitmq rooms-api search-api
 ```
 
-**Respuesta:**
-```json
-{
-  "room_types": {
-    "single": 20,
-    "double": 35,
-    "suite": 15
-  },
-  "status_counts": {
-    "available": 50,
-    "occupied": 15,
-    "maintenance": 5
-  },
-  "floor_counts": {
-    "1": 20,
-    "2": 25,
-    "3": 25
-  }
-}
-```
+### Local (Desarrollo)
 
-### Administración
-
-#### `POST /api/v1/admin/index/rooms/full`
-
-Reindexar todas las habitaciones desde rooms-api.
-
-**Ejemplo:**
 ```bash
-curl -X POST "http://localhost:8083/api/v1/admin/index/rooms/full"
+# 1. Asegurar que Solr, Memcached y RabbitMQ estén corriendo
+docker-compose up -d solr memcached rabbitmq
+
+# 2. Crear el core de Solr (si no existe)
+curl "http://localhost:8983/solr/admin/cores?action=CREATE&name=rooms-core&configSet=_default"
+
+# 3. Aplicar schema
+curl -X POST -H 'Content-type:application/json' \
+  http://localhost:8983/solr/rooms-core/schema \
+  --data-binary @scripts/schema.json
+
+# 4. Instalar dependencias
+cd search-api
+go mod download
+
+# 5. Ejecutar
+go run cmd/server/main.go
 ```
 
-#### `POST /api/v1/admin/index/room/:id`
+## Flujo de Sincronización
 
-Indexar una habitación manualmente.
+1. **Evento en rooms-api**: Se crea/actualiza/elimina una habitación
+2. **Publicación a RabbitMQ**: rooms-api publica evento al exchange "rooms"
+3. **Consumer recibe evento**: search-api consume el mensaje
+4. **Obtención de datos**: Consumer llama a rooms-api GET /api/v1/rooms/:id
+5. **Indexación en Solr**: Se indexa/actualiza/elimina el documento en Solr
+6. **Invalidación de caché**: Se limpia el caché local
 
-**Body:**
-```json
-{
-  "room_number": "101",
-  "room_type": "suite",
-  "capacity": 2,
-  "price_per_night": 250.00,
-  "status": "available",
-  "description": "Suite de lujo",
-  "amenities": ["WiFi", "TV"],
-  "floor": 1,
-  "is_available": true
-}
+## Estrategia de Caché
+
+### Flujo de Búsqueda con Caché
+
+```
+Request → CCache (L1)
+          ├─ HIT → Return cached
+          └─ MISS → Memcached (L2)
+                    ├─ HIT → Save to CCache → Return
+                    └─ MISS → Solr
+                              └─ Save to Memcached → Save to CCache → Return
 ```
 
-#### `DELETE /api/v1/admin/index/room/:id`
+### Cache Keys
 
-Eliminar una habitación del índice.
+Las claves de caché se generan con un hash SHA-256 de todos los parámetros de búsqueda:
+```
+search:{hash_de_parametros}
+```
 
-#### `GET /api/v1/admin/index/stats`
+### TTLs
 
-Obtiene estadísticas del índice.
+- **CCache (Local)**: 60 segundos
+- **Memcached (Distribuido)**: 300 segundos (5 minutos)
 
-## 🔄 Eventos RabbitMQ
+## Testing
 
-El servicio escucha los siguientes eventos:
+### Crear una habitación en rooms-api
 
-- `room.created`: Nueva habitación creada
-- `room.updated`: Habitación actualizada
-- `room.deleted`: Habitación eliminada
-- `room.status.changed`: Estado de habitación cambiado
-- `reservation.created`: Nueva reserva (marca habitación como no disponible)
-- `reservation.cancelled`: Reserva cancelada (marca habitación como disponible)
-
-## 🧪 Pruebas
-
-### Iniciar servicios
 ```bash
-docker-compose up -d
+curl -X POST http://localhost:8081/api/v1/rooms \
+  -H "Content-Type: application/json" \
+  -d '{
+    "number": "101",
+    "type": "double",
+    "price": 120.50,
+    "description": "Habitación doble con vista al mar",
+    "capacity": 2,
+    "floor": 1,
+    "has_wifi": true,
+    "has_ac": true,
+    "has_tv": true,
+    "has_minibar": false
+  }'
 ```
 
-### Verificar salud
+### Verificar que se indexó en Solr
+
 ```bash
-curl http://localhost:8083/health
+curl "http://localhost:8983/solr/rooms-core/select?q=*:*&wt=json"
 ```
 
-### Reindexar habitaciones
+### Buscar con search-api
+
 ```bash
-curl -X POST http://localhost:8083/api/v1/admin/index/rooms/full
+# Buscar habitaciones disponibles con WiFi
+curl "http://localhost:8083/api/search/rooms?status=available&has_wifi=true"
+
+# Buscar por rango de precio
+curl "http://localhost:8083/api/search/rooms?min_price=100&max_price=200&sort=price"
+
+# Búsqueda de texto libre
+curl "http://localhost:8083/api/search/rooms?q=mar"
 ```
 
-### Buscar habitaciones disponibles
-```bash
-curl "http://localhost:8083/api/v1/search/rooms?is_available=true&limit=5"
+## Logs
+
+Los logs muestran:
+- Cache HIT/MISS (local y distribuido)
+- Eventos RabbitMQ recibidos y procesados
+- Indexaciones/eliminaciones en Solr
+- Errores de sincronización
+
+Ejemplo:
+```
+2024/11/14 10:15:23 Successfully connected to RabbitMQ
+2024/11/14 10:15:23 Queue search-api-rooms-queue bound to exchange rooms with routing key room.created
+2024/11/14 10:15:23 RabbitMQ consumer started, waiting for messages...
+2024/11/14 10:15:23 Starting HTTP server on port 8083
+2024/11/14 10:16:45 Received message: {"event_type":"created","room_id":1,"timestamp":"2024-11-14T10:16:45Z"}
+2024/11/14 10:16:45 Room 1 indexed successfully in Solr
+2024/11/14 10:16:45 Event processed successfully: created for room 1
+2024/11/14 10:17:10 Cache MISS: search:a3f2... - Querying Solr
+2024/11/14 10:17:11 Cache HIT (local): search:a3f2...
 ```
 
-### Buscar por precio
-```bash
-curl "http://localhost:8083/api/v1/search/rooms?min_price=100&max_price=200"
-```
+## Troubleshooting
 
-## 📊 Monitoreo
+### El consumer no recibe eventos
 
-- **Solr Admin UI**: http://localhost:8983/solr
-- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
-- **API Health**: http://localhost:8083/health
-
-## 🔧 Variables de Entorno
-
-| Variable | Descripción | Default |
-|----------|-------------|---------|
-| `SOLR_URL` | URL de Solr | `http://localhost:8983/solr/rooms_core` |
-| `MEMCACHED_HOST` | Host de Memcached | `localhost` |
-| `MEMCACHED_PORT` | Puerto de Memcached | `11211` |
-| `MEMCACHED_TTL` | TTL del cache (segundos) | `300` |
-| `RABBITMQ_URL` | URL de RabbitMQ | `amqp://guest:guest@localhost:5672/` |
-| `ROOMS_API_URL` | URL de Rooms API | `http://localhost:8081` |
-| `PORT` | Puerto del servidor | `8080` |
-
-## 🏗️ Arquitectura
-
-```
-Frontend
-    ↓
-Search API (8083)
-    ↓
-├── Solr (8983) ← Motor de búsqueda
-├── Memcached (11211) ← Caché
-└── RabbitMQ (5672) ← Eventos
-         ↑
-    Rooms API (8081)
-    Reservations API (8082)
-```
-
-## 📝 Notas
-
-1. **Primera vez**: Ejecutar reindexación completa después de iniciar
-2. **Caché**: Se invalida automáticamente con eventos
-3. **Reintentos**: RabbitMQ reintenta conexión hasta 15 veces
-4. **Límites**: Máximo 100 resultados por página
-
-## 🐛 Troubleshooting
+1. Verificar que rooms-api esté publicando eventos
+2. Verificar RabbitMQ Management: http://localhost:15672
+3. Verificar que el exchange "rooms" exista
+4. Verificar que la queue esté bindeada
 
 ### Solr no responde
+
 ```bash
-docker-compose logs solr
-docker-compose restart solr
+# Verificar health
+curl http://localhost:8983/solr/rooms-core/admin/ping
+
+# Ver logs de Solr
+docker logs solr
 ```
 
-### No se indexan habitaciones
+### Memcached no funciona
+
 ```bash
-docker-compose logs search-api
-# Verificar que RabbitMQ esté funcionando
-docker-compose logs rabbitmq
+# Verificar que esté corriendo
+docker ps | grep memcached
+
+# Test manual
+telnet localhost 11211
+> stats
 ```
 
-### Cache no funciona
-```bash
-docker-compose logs memcached
-# Reiniciar memcached
-docker-compose restart memcached
-```
+## Próximas Mejoras
+
+- [ ] Soporte para búsqueda por disponibilidad de fechas (integración con reservations-api)
+- [ ] Aggregations/facets en Solr (estadísticas por tipo, piso, etc.)
+- [ ] Rate limiting en endpoints
+- [ ] Metrics y observabilidad (Prometheus/Grafana)
+- [ ] Auto-reindexación completa periódica
+- [ ] Búsqueda fuzzy y autocompletado
