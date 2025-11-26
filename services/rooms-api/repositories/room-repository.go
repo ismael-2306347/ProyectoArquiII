@@ -39,7 +39,7 @@ func (r *RoomRepository) Create(ctx context.Context, room *domain.Room) error {
 	return nil
 }
 
-func (r *RoomRepository) GetByID(ctx context.Context, id string) (*domain.Room, error) {
+func (r *RoomRepository) GetByID(ctx context.Context, id uint) (*domain.Room, error) {
 	var room domain.Room
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&room)
 
@@ -117,7 +117,7 @@ func (r *RoomRepository) GetAll(ctx context.Context, filter domain.RoomFilter, p
 	return rooms, total, nil
 }
 
-func (r *RoomRepository) Update(ctx context.Context, id string, updateData domain.UpdateRoomRequest) (*domain.Room, error) {
+func (r *RoomRepository) Update(ctx context.Context, id uint, updateData domain.UpdateRoomRequest) (*domain.Room, error) {
 	// Verificar que la habitación existe
 	var room domain.Room
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&room)
@@ -193,7 +193,7 @@ func (r *RoomRepository) Update(ctx context.Context, id string, updateData domai
 	return &room, nil
 }
 
-func (r *RoomRepository) Delete(ctx context.Context, id string) error {
+func (r *RoomRepository) Delete(ctx context.Context, id uint) error {
 	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&domain.Room{})
 
 	if result.Error != nil {

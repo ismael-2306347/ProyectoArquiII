@@ -81,8 +81,9 @@ services:
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 40s
 
   # ===========================
   # 🔹 Apache Solr para búsqueda
@@ -95,15 +96,18 @@ services:
       - "8983:8983"
     volumes:
       - solr_data:/var/solr
-      - ./solr/configsets:/opt/solr/server/solr/configsets
+      - ./services/search-api/scripts/solr-init.sh:/docker-entrypoint-initdb.d/solr-init.sh
+    environment:
+      - SOLR_HEAP=512m
     command:
       - solr-precreate
-      - rooms_core
+      - rooms-core
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8983/solr/rooms_core/admin/ping" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # ===========================
   # 🔹 Memcached para caché
@@ -155,6 +159,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
     environment:
       - DB_HOST=mysql-rooms
       - DB_PORT=3306
@@ -163,6 +168,10 @@ services:
       - DB_NAME=roomsdb
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      - MEMCACHED_TTL=300
+      - SEARCH_API_BASE_URL=http://search-api:8083
     ports:
       - "8081:8080"
 
@@ -193,7 +202,7 @@ services:
   search-api:
     build:
       context: ./services/search-api
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
     container_name: search-api
     restart: always
     depends_on:
@@ -203,14 +212,20 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      rooms-api:
+        condition: service_started
     environment:
-      - SOLR_URL=http://solr:8983/solr/rooms_core
+      - SOLR_URL=http://solr:8983/solr
+      - SOLR_CORE=rooms-core
       - MEMCACHED_HOST=memcached
       - MEMCACHED_PORT=11211
-      - MEMCACHED_TTL=300
+      - LOCAL_CACHE_TTL_SECONDS=60
+      - DISTRIBUTED_CACHE_TTL_SECONDS=300
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - ROOMS_API_URL=http://rooms-api:8080
-      - RESERVATIONS_API_URL=http://reservations-api:8080
+      - ROOMS_API_BASE_URL=http://rooms-api:8080
+      - JWT_SECRET=supersecreto_cámbialo
+      - PORT=8083
+      - GIN_MODE=release
     ports:
       - "8083:8080"
 

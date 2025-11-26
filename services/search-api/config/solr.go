@@ -2,35 +2,44 @@ package config
 
 import (
 	"fmt"
-	"net/http"
-	"time"
+	"os"
 )
 
-type SolrClient struct {
+// SolrConfig contiene la configuración de Solr
+type SolrConfig struct {
 	BaseURL string
-	Client  *http.Client
+	Core    string
 }
 
-func NewSolrClient(baseURL string) *SolrClient {
-	return &SolrClient{
+// NewSolrConfig crea una nueva configuración de Solr desde variables de entorno
+func NewSolrConfig() *SolrConfig {
+	baseURL := os.Getenv("SOLR_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:8983/solr"
+	}
+
+	core := os.Getenv("SOLR_CORE")
+	if core == "" {
+		core = "rooms-core"
+	}
+
+	return &SolrConfig{
 		BaseURL: baseURL,
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		Core:    core,
 	}
 }
 
-func (s *SolrClient) HealthCheck() error {
-	url := fmt.Sprintf("%s/admin/ping", s.BaseURL)
-	resp, err := s.Client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+// GetCoreURL retorna la URL completa del core de Solr
+func (c *SolrConfig) GetCoreURL() string {
+	return fmt.Sprintf("%s/%s", c.BaseURL, c.Core)
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("solr health check failed with status: %d", resp.StatusCode)
-	}
+// GetSelectURL retorna la URL para consultas (select)
+func (c *SolrConfig) GetSelectURL() string {
+	return fmt.Sprintf("%s/%s/select", c.BaseURL, c.Core)
+}
 
-	return nil
+// GetUpdateURL retorna la URL para actualizaciones (indexar/eliminar)
+func (c *SolrConfig) GetUpdateURL() string {
+	return fmt.Sprintf("%s/%s/update/json", c.BaseURL, c.Core)
 }
