@@ -291,12 +291,12 @@ export default function AdminRoomList() {
                                                 value={room.status}
                                                 onChange={(e) => handleStatusChange(room.id, e.target.value)}
                                                 className={`text-sm rounded-full px-3 py-1 font-semibold cursor-pointer ${room.status === 'available'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : room.status === 'occupied'
-                                                            ? 'bg-red-100 text-red-800'
-                                                            : room.status === 'maintenance'
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-gray-100 text-gray-800'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : room.status === 'occupied'
+                                                        ? 'bg-red-100 text-red-800'
+                                                        : room.status === 'maintenance'
+                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                            : 'bg-gray-100 text-gray-800'
                                                     }`}
                                             >
                                                 <option value="available">Available</option>
