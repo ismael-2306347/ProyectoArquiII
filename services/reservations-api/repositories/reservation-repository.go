@@ -19,6 +19,7 @@ type ReservationRepository interface {
 	Create(ctx context.Context, reservation domain.Reservation) (domain.Reservation, error)
 	Delete(ctx context.Context, id string, reason string) error
 	GetByID(ctx context.Context, id string) (domain.Reservation, error)
+	HasActiveOverlap(ctx context.Context, roomID uint, startDate, endDate string) (bool, error)
 }
 
 type reservationRepository struct {
@@ -146,4 +147,28 @@ func (r *reservationRepository) GetByID(ctx context.Context, id string) (domain.
 	}
 
 	return reservation, nil
+}
+
+// HasActiveOverlap verifica si ya existe una reserva activa para la habitación en el rango dado.
+func (r *reservationRepository) HasActiveOverlap(ctx context.Context, roomID uint, startDate, endDate string) (bool, error) {
+	filter := bson.M{
+		"room_id": roomID,
+		"status":  domain.ReservationStatusActive,
+		"start_date": bson.M{
+			"$lte": endDate,
+		},
+		"end_date": bson.M{
+			"$gte": startDate,
+		},
+	}
+
+	err := r.collection.FindOne(ctx, filter).Err()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		return false, fmt.Errorf("overlap lookup failed: %w", err)
+	}
+
+	return true, nil
 }

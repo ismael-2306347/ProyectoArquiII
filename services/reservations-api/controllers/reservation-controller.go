@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"reservations-api/domain"
 	"reservations-api/services"
+	"reservations-api/utils"
 	"strconv"
 	"strings"
 
@@ -54,6 +56,10 @@ func (c *ReservationController) CreateReservation(ctx *gin.Context) {
 	}
 	created, err := c.service.CreateReservation(ctx, req)
 	if err != nil {
+		if errors.Is(err, utils.ErrReservationConflict) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
