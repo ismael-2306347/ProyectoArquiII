@@ -7,6 +7,7 @@ import (
 	"reservations-api/domain"
 	"reservations-api/events"
 	"reservations-api/repositories"
+	"reservations-api/utils"
 	"time"
 )
 
@@ -47,6 +48,14 @@ func (s *reservationService) CreateReservation(
 
 	if dto.EndDate <= dto.StartDate {
 		return domain.Reservation{}, fmt.Errorf("end_date debe ser posterior a start_date")
+	}
+
+	hasOverlap, err := s.repository.HasActiveOverlap(ctx, dto.RoomID, dto.StartDate, dto.EndDate)
+	if err != nil {
+		return domain.Reservation{}, fmt.Errorf("failed to validar disponibilidad: %w", err)
+	}
+	if hasOverlap {
+		return domain.Reservation{}, utils.ErrReservationConflict
 	}
 
 	// Mapear DTO → entidad (sin conversión)
