@@ -17,6 +17,8 @@ export default function AdminRoomList() {
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+    const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
     const [deleteModal, setDeleteModal] = useState<{ show: boolean; roomId: string | null }>({
         show: false,
         roomId: null,
@@ -102,11 +104,44 @@ export default function AdminRoomList() {
     };
 
     const handleStatusChange = async (roomId: string, newStatus: string) => {
+        if (updatingRoomId) return; // Prevenir múltiples clics
+
+        setUpdatingRoomId(roomId);
+        setError(null);
+        setSuccess(null);
+
         try {
-            await adminRoomService.updateRoomStatus(roomId, newStatus);
-            loadRooms();
+            const response = await adminRoomService.updateRoomStatus(roomId, newStatus);
+            setSuccess(`✅ Estado de la habitación actualizado a: ${newStatus}`);
+
+            // Actualizar la habitación en la lista localmente
+            setRooms((prevRooms) =>
+                prevRooms.map((room) =>
+                    room.id === roomId ? { ...room, status: newStatus as any } : room
+                )
+            );
+
+            // Limpiar mensaje de éxito después de 3 segundos
+            setTimeout(() => {
+                setSuccess(null);
+            }, 3000);
+
+            // Recargar después de un pequeño delay para sincronizar con el backend
+            setTimeout(() => {
+                loadRooms();
+            }, 1000);
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Failed to update status');
+            const errorMessage =
+                err?.response?.status === 401
+                    ? 'No tienes permisos para realizar esta acción'
+                    : err?.response?.status === 404
+                        ? 'La habitación no fue encontrada'
+                        : err?.response?.data?.error || 'Error al actualizar el estado de la habitación';
+
+            setError(errorMessage);
+            console.error('Error updating room status:', err);
+        } finally {
+            setUpdatingRoomId(null);
         }
     };
 
@@ -146,6 +181,12 @@ export default function AdminRoomList() {
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
                         <p className="text-red-800">{error}</p>
+                    </div>
+                )}
+
+                {success && (
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                        <p className="text-green-800">{success}</p>
                     </div>
                 )}
 
@@ -287,23 +328,28 @@ export default function AdminRoomList() {
                                             {room.capacity} persona{room.capacity > 1 ? 's' : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <select
-                                                value={room.status}
-                                                onChange={(e) => handleStatusChange(room.id, e.target.value)}
-                                                className={`text-sm rounded-full px-3 py-1 font-semibold cursor-pointer ${room.status === 'available'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : room.status === 'occupied'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : room.status === 'maintenance'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-gray-100 text-gray-800'
-                                                    }`}
-                                            >
-                                                <option value="available">Disponible</option>
-                                                <option value="occupied">Ocupado</option>
-                                                <option value="maintenance">Mantenimiento</option>
-                                                <option value="cleaning">Limpieza</option>
-                                            </select>
+                                            <div className="relative">
+                                                <select
+                                                    value={room.status}
+                                                    onChange={(e) => handleStatusChange(room.id, e.target.value)}
+                                                    disabled={updatingRoomId === room.id}
+                                                    className={`text-sm rounded-full px-3 py-1 font-semibold cursor-pointer transition-all ${updatingRoomId === room.id
+                                                        ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-600'
+                                                        : room.status === 'available'
+                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                            : room.status === 'occupied'
+                                                                ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                                                                : room.status === 'maintenance'
+                                                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    <option value="available">Disponible</option>
+                                                    <option value="occupied">Ocupado</option>
+                                                    <option value="maintenance">Mantenimiento</option>
+                                                    <option value="cleaning">Limpieza</option>
+                                                </select>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div className="flex flex-wrap gap-1">
@@ -336,6 +382,7 @@ export default function AdminRoomList() {
                                             </button>
                                         </td>
                                     </tr>
+
                                 ))
                             )}
                         </tbody>
