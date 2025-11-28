@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
 import type { User, LoginRequest, RegisterRequest } from '@/types';
+import type {ReactNode} from 'react';
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +19,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
     const storedUser = authService.getStoredUser();
     const storedToken = authService.getStoredToken();
 
@@ -30,21 +30,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginRequest) => {
-    const response = await authService.login(credentials);
-    const { token, user: userData } = response.login;
+    try {
+      const response = await authService.login(credentials);
 
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
+      if (!response || !response.login) {
+        throw new Error("Credenciales inválidas");
+      }
+
+      const { token, user: userData } = response.login;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+
+    } catch (err: any) {
+      // se reenvía el error para que Login.tsx pueda mostrarlo en pantalla
+      throw err.response?.data?.error || "Error al iniciar sesión. Verifica tus credenciales.";
+    }
   };
 
   const register = async (userData: RegisterRequest) => {
     const response = await authService.register(userData);
-    // After registration, automatically log in
-    await login({
-      username_or_email: userData.username,
-      password: userData.password,
-    });
+    await login({ username_or_email: userData.username, password: userData.password });
   };
 
   const logout = () => {
@@ -70,8 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
