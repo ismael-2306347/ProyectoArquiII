@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"rooms-api/config"
+	"rooms-api/consumers"
 	"rooms-api/controllers"
 	"rooms-api/domain"
 	"rooms-api/events"
@@ -15,6 +16,7 @@ import (
 	"rooms-api/utils"
 
 	"github.com/gin-gonic/gin"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func getEnv(key, fallback string) string {
@@ -42,11 +44,12 @@ func main() {
 	rabbitURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 
 	var publisher *events.EventPublisher
+	var rabbitConn *amqp.Connection
 
-	rabbitConn, err := config.InitRabbitMQ(rabbitURL)
+	rabbitConn, err = config.InitRabbitMQ(rabbitURL)
 	if err != nil {
 		log.Printf("⚠️  Warning: No se pudo conectar a RabbitMQ: %v", err)
-		log.Println("⚠️  Los eventos no serán publicados")
+		log.Println("⚠️  Los eventos no serán publicados ni consumidos")
 	} else {
 		defer rabbitConn.Close()
 
@@ -94,6 +97,21 @@ func main() {
 	// Initialize service (ahora con cache + publisher + searchAPIClient)
 	roomService := services.NewRoomService(roomRepo, publisher, roomCacheRepo, searchAPIClient)
 
+	// 🔹 RESERVATION CONSUMER: escuchar eventos de reserva
+	if rabbitConn != nil {
+		channel, err := rabbitConn.Channel()
+		if err != nil {
+			log.Printf("⚠️  Warning: No se pudo crear channel de RabbitMQ: %v", err)
+		} else {
+			defer channel.Close()
+
+			reservationConsumer := consumers.NewReservationConsumer(channel, roomService)
+			if err := reservationConsumer.Start(nil); err != nil {
+				log.Printf("⚠️  Warning: Error iniciando reservation consumer: %v", err)
+			}
+		}
+	}
+
 	// Initialize controller
 	roomController := controllers.NewRoomController(roomService)
 
@@ -130,7 +148,7 @@ func main() {
 		rooms := api.Group("/rooms")
 		{
 			rooms.GET("", roomController.GetRooms)
-			rooms.GET("/available", roomController.GetRoomsViaSearch)
+			rooms.GET("/available", roomController.GetAvailableRooms)
 			rooms.GET("/number/:number", roomController.GetRoomByNumber)
 			rooms.GET("/:id", roomController.GetRoomByID)
 		}
