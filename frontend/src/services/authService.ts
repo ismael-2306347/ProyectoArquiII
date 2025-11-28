@@ -1,17 +1,24 @@
 import api from '@/lib/axios';
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User } from '@/types';
 
-
 export const authService = {
-  
+
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/login', credentials);
-    return response.data;
+    try {
+      const response = await api.post<LoginResponse>('/login', credentials);
+      return response.data;
+    } catch (err: any) {
+      throw err.response?.data?.error || "Credenciales inválidas";
+    }
   },
 
   async register(userData: RegisterRequest): Promise<RegisterResponse> {
-    const response = await api.post<RegisterResponse>('/users', userData);
-    return response.data;
+    try {
+      const response = await api.post<RegisterResponse>('/users', userData);
+      return response.data;
+    } catch (err: any) {
+      throw err.response?.data?.error || "Error al registrarte";
+    }
   },
 
   async getUser(id: number): Promise<{ user: User }> {

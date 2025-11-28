@@ -4,7 +4,6 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import AdminRoute from '@/components/auth/AdminRoute';
 
-// Pages
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { Home } from '@/pages/Home';
@@ -19,81 +18,25 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public routes */}
+
+          {/* PUBLIC */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/rooms"
-            element={
-              <ProtectedRoute>
-                <Rooms />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/rooms/:roomId/reserve"
-            element={
-              <ProtectedRoute>
-                <ReserveRoom />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/my-reservations"
-            element={
-              <ProtectedRoute>
-                <MyReservations />
-              </ProtectedRoute>
-            }
-          />
-        <Route
-           path="/rooms"
-           element={
-            <ProtectedRoute>
-              <Rooms />
-             </ProtectedRoute>
-            }
-          />
+          {/* PRIVATE */}
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
+          <Route path="/rooms/:roomId/reserve" element={<ProtectedRoute><ReserveRoom /></ProtectedRoute>} />
+          <Route path="/my-reservations" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
 
+          {/* ADMIN */}
+          <Route path="/admin/rooms" element={<AdminRoute><AdminRoomList /></AdminRoute>} />
+          <Route path="/admin/rooms/new" element={<AdminRoute><AdminRoomForm /></AdminRoute>} />
+          <Route path="/admin/rooms/:id" element={<AdminRoute><AdminRoomForm /></AdminRoute>} />
 
-          {/* Admin routes */}
-          <Route
-            path="/admin/rooms"
-            element={
-              <AdminRoute>
-                <AdminRoomList />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/rooms/new"
-            element={
-              <AdminRoute>
-                <AdminRoomForm />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/rooms/:id"
-            element={
-              <AdminRoute>
-                <AdminRoomForm />
-              </AdminRoute>
-            }
-          />
+          {/* 404 fallback */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
 
-          {/* Redirect unknown routes to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

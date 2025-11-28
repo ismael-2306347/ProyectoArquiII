@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"rooms-api/config"
 	"rooms-api/domain"
@@ -133,11 +132,6 @@ func (s *RoomService) hasComplexFilters(filter domain.RoomFilter) bool {
 	// - Múltiples filtros combinados (más eficiente en Solr)
 	// - Filtros de amenities (has_wifi, has_ac, etc.)
 
-	// SIEMPRE usar Search API si hay búsqueda de texto libre
-	if filter.Query != nil && *filter.Query != "" {
-		return true
-	}
-
 	filterCount := 0
 
 	if filter.Type != nil {
@@ -224,9 +218,6 @@ func (s *RoomService) UpdateRoomStatus(ctx context.Context, id uint, status doma
 func (s *RoomService) GetAvailableRooms(ctx context.Context, filter domain.RoomFilter, page, limit int) (*domain.RoomListResponse, error) {
 	availableStatus := domain.RoomStatusAvailable
 	filter.Status = &availableStatus
-
-	// 🔍 LOG para debuggear
-	log.Printf("🔍 RoomService.GetAvailableRooms: Query=%v, Status=%v", filter.Query, filter.Status)
 
 	// Siempre usar Search API para habitaciones disponibles (consulta frecuente)
 	return s.searchAPIClient.SearchRooms(filter, page, limit)

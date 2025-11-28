@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"log"
 	"net/http"
 	"rooms-api/domain"
 	"rooms-api/services"
@@ -147,7 +146,6 @@ func (c *RoomController) GetRoomByNumber(ctx *gin.Context) {
 // @Description Get all rooms with optional filtering and pagination
 // @Tags rooms
 // @Produce json
-// @Param q query string false "Search query (number, type, description)"
 // @Param type query string false "Room type (single, double, suite, deluxe, standard)"
 // @Param status query string false "Room status (available, occupied, maintenance, reserved)"
 // @Param floor query int false "Floor number"
@@ -167,9 +165,6 @@ func (c *RoomController) GetRooms(ctx *gin.Context) {
 	// Parsear parámetros de consulta
 	filter := domain.RoomFilter{}
 
-	if q := ctx.Query("q"); q != "" {
-		filter.Query = &q
-	}
 	if roomType := ctx.Query("type"); roomType != "" {
 		filter.Type = (*domain.RoomType)(&roomType)
 	}
@@ -411,15 +406,10 @@ func (c *RoomController) UpdateRoomStatus(ctx *gin.Context) {
 // @Description Get all available rooms with optional filtering
 // @Tags rooms
 // @Produce json
-// @Param q query string false "Search query (number, type, description)"
 // @Param type query string false "Room type"
 // @Param floor query int false "Floor number"
 // @Param min_price query number false "Minimum price"
 // @Param max_price query number false "Maximum price"
-// @Param has_wifi query bool false "Has WiFi"
-// @Param has_ac query bool false "Has AC"
-// @Param has_tv query bool false "Has TV"
-// @Param has_minibar query bool false "Has minibar"
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} domain.RoomListResponse
@@ -430,17 +420,9 @@ func (c *RoomController) GetAvailableRooms(ctx *gin.Context) {
 	// Parsear parámetros (similar a GetRooms) pero sólo para disponibles
 	filter := domain.RoomFilter{}
 
-	if q := ctx.Query("q"); q != "" {
-		filter.Query = &q
-		log.Printf("🔍 GetAvailableRooms received q: %s", q)
-	}
 	if roomType := ctx.Query("type"); roomType != "" {
 		filter.Type = (*domain.RoomType)(&roomType)
 	}
-	if status := ctx.Query("status"); status != "occupied" {
-		filter.Status = (*domain.RoomStatus)(&status)
-	}
-
 	if floorStr := ctx.Query("floor"); floorStr != "" {
 		if floor, err := strconv.Atoi(floorStr); err == nil {
 			filter.Floor = &floor
@@ -454,26 +436,6 @@ func (c *RoomController) GetAvailableRooms(ctx *gin.Context) {
 	if maxPriceStr := ctx.Query("max_price"); maxPriceStr != "" {
 		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
 			filter.MaxPrice = &maxPrice
-		}
-	}
-	if hasWifiStr := ctx.Query("has_wifi"); hasWifiStr != "" {
-		if hasWifi, err := strconv.ParseBool(hasWifiStr); err == nil {
-			filter.HasWifi = &hasWifi
-		}
-	}
-	if hasACStr := ctx.Query("has_ac"); hasACStr != "" {
-		if hasAC, err := strconv.ParseBool(hasACStr); err == nil {
-			filter.HasAC = &hasAC
-		}
-	}
-	if hasTVStr := ctx.Query("has_tv"); hasTVStr != "" {
-		if hasTV, err := strconv.ParseBool(hasTVStr); err == nil {
-			filter.HasTV = &hasTV
-		}
-	}
-	if hasMinibarStr := ctx.Query("has_minibar"); hasMinibarStr != "" {
-		if hasMinibar, err := strconv.ParseBool(hasMinibarStr); err == nil {
-			filter.HasMinibar = &hasMinibar
 		}
 	}
 
@@ -490,9 +452,6 @@ func (c *RoomController) GetAvailableRooms(ctx *gin.Context) {
 			limit = l
 		}
 	}
-
-	// 🔍 LOG para verificar filter completo antes de enviar al servicio
-	log.Printf("🔍 GetAvailableRooms filter: Query=%v, Status=%v, Page=%d, Limit=%d", filter.Query, filter.Status, page, limit)
 
 	rooms, err := c.roomService.GetAvailableRooms(ctx.Request.Context(), filter, page, limit)
 	if err != nil {

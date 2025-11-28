@@ -65,9 +65,6 @@ func (c *SearchAPIClient) SearchRooms(filter domain.RoomFilter, page, limit int)
 	// Construir query parameters
 	params := url.Values{}
 
-	if filter.Query != nil && *filter.Query != "" {
-		params.Add("q", *filter.Query)
-	}
 	if filter.Type != nil {
 		params.Add("type", string(*filter.Type))
 	}
@@ -101,12 +98,6 @@ func (c *SearchAPIClient) SearchRooms(filter domain.RoomFilter, page, limit int)
 
 	// Construir URL
 	searchURL := fmt.Sprintf("%s/api/search/rooms?%s", c.BaseURL, params.Encode())
-
-	// 🔍 LOG para debuggear
-	fmt.Printf("🔍 SearchAPIClient URL: %s\n", searchURL)
-	if filter.Query != nil {
-		fmt.Printf("🔍 SearchAPIClient Query received: %s\n", *filter.Query)
-	}
 
 	// Realizar request
 	resp, err := c.HTTPClient.Get(searchURL)

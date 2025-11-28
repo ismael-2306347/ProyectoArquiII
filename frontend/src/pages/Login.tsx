@@ -18,38 +18,14 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validar campos
-    if (!formData.username_or_email || !formData.password) {
-      setError('Por favor completa todos los campos');
-      return;
-    }
-
     setError('');
     setIsLoading(true);
 
     try {
       await login(formData);
-      // Solo navegar si el login fue exitoso
-      navigate('/', { replace: true });
+      navigate('/');
     } catch (err: any) {
-      // Mejor manejo de errores específicos
-      const status = err?.response?.status;
-      const errorData = err?.response?.data;
-      
-      if (status === 401 || status === 400) {
-        setError('Usuario o contraseña incorrectos. Por favor intenta nuevamente.');
-      } else if (status === 404) {
-        setError('Usuario no encontrado. ¿Quizás quieras registrarte?');
-      } else if (status === 429) {
-        setError('Demasiados intentos fallidos. Intenta más tarde.');
-      } else if (status >= 500) {
-        setError('Error del servidor. Por favor intenta más tarde.');
-      } else if (err.message === 'Network Error') {
-        setError('Error de conexión. Verifica tu conexión a internet.');
-      } else {
-        setError(errorData?.error || errorData?.message || 'Error al iniciar sesión. Intenta nuevamente.');
-      }
+      setError(err.response?.data?.error || 'Error al iniciar sesión. Verifica tus credenciales.');
     } finally {
       setIsLoading(false);
     }
@@ -73,24 +49,8 @@ export function Login() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                  {error}
                 </div>
               )}
 
@@ -99,6 +59,7 @@ export function Login() {
                 type="text"
                 value={formData.username_or_email}
                 onChange={(e) => setFormData({ ...formData, username_or_email: e.target.value })}
+                required
                 placeholder="usuario o email@ejemplo.com"
               />
 
@@ -107,6 +68,7 @@ export function Login() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
                 placeholder="••••••••"
               />
 
