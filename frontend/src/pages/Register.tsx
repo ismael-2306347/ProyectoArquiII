@@ -23,6 +23,14 @@ export function Register() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
+    if (!formData.username || formData.username.length < 3) {
+      newErrors.username = 'El usuario debe tener al menos 3 caracteres';
+    }
+
+    if (!formData.first_name || !formData.last_name) {
+      newErrors.name = 'El nombre y apellido son requeridos';
+    }
+
     if (formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
@@ -31,7 +39,7 @@ export function Register() {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
-    if (!formData.email.includes('@')) {
+    if (!formData.email || !formData.email.includes('@')) {
       newErrors.email = 'Email inválido';
     }
 
@@ -52,10 +60,33 @@ export function Register() {
     try {
       const { confirmPassword, ...registerData } = formData;
       await register(registerData);
-      navigate('/');
+      // Solo navegar si el registro fue exitoso
+      navigate('/', { replace: true });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Error al registrarse. Intenta nuevamente.';
-      setErrors({ general: errorMessage });
+      // Mejor manejo de errores específicos
+      const status = err?.response?.status;
+      const errorData = err?.response?.data;
+      
+      if (status === 409 || status === 400) {
+        // Conflicto - usuario o email ya existe
+        if (errorData?.error?.includes('email') || errorData?.message?.includes('email')) {
+          setErrors({ general: 'Este email ya está registrado. ¿Quizás quieras iniciar sesión?' });
+        } else if (errorData?.error?.includes('username') || errorData?.message?.includes('username')) {
+          setErrors({ general: 'Este usuario ya está en uso. Elige otro.' });
+        } else {
+          setErrors({ general: errorData?.error || 'Este usuario o email ya está registrado.' });
+        }
+      } else if (status === 400) {
+        setErrors({ general: 'Datos inválidos. Por favor verifica el formulario.' });
+      } else if (status >= 500) {
+        setErrors({ general: 'Error del servidor. Por favor intenta más tarde.' });
+      } else if (err.message === 'Network Error') {
+        setErrors({ general: 'Error de conexión. Verifica tu conexión a internet.' });
+      } else {
+        setErrors({ 
+          general: errorData?.error || errorData?.message || 'Error al registrarse. Intenta nuevamente.' 
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -79,71 +110,95 @@ export function Register() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {errors.general && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                  {errors.general}
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-5 w-5 text-red-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-700">{errors.general}</p>
+                  </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Nombre"
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  required
-                  placeholder="Juan"
-                  fullWidth={false}
-                />
+                <div>
+                  <Input
+                    label="Nombre"
+                    type="text"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    placeholder="Juan"
+                    fullWidth={false}
+                  />
+                  {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
+                </div>
 
-                <Input
-                  label="Apellido"
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  required
-                  placeholder="Pérez"
-                  fullWidth={false}
-                />
+                <div>
+                  <Input
+                    label="Apellido"
+                    type="text"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    placeholder="Pérez"
+                    fullWidth={false}
+                  />
+                </div>
               </div>
 
-              <Input
-                label="Nombre de usuario"
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
-                placeholder="juanperez"
-              />
+              <div>
+                <Input
+                  label="Nombre de usuario"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="juanperez"
+                />
+                {errors.username && <p className="text-xs text-red-500 mt-1">{errors.username}</p>}
+              </div>
 
-              <Input
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                placeholder="email@ejemplo.com"
-                error={errors.email}
-              />
+              <div>
+                <Input
+                  label="Email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@ejemplo.com"
+                />
+                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+              </div>
 
-              <Input
-                label="Contraseña"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                placeholder="••••••••"
-                error={errors.password}
-              />
+              <div>
+                <Input
+                  label="Contraseña"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
+                />
+                {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
+              </div>
 
-              <Input
-                label="Confirmar contraseña"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                required
-                placeholder="••••••••"
-                error={errors.confirmPassword}
-              />
+              <div>
+                <Input
+                  label="Confirmar contraseña"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  placeholder="••••••••"
+                />
+                {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
+              </div>
 
               <Button
                 type="submit"
