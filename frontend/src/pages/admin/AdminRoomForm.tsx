@@ -117,7 +117,7 @@ export default function AdminRoomForm() {
     if (loading && isEditMode) {
         return (
             <div className="flex justify-center items-center min-h-screen">
-                <div className="text-xl">Loading room...</div>
+                <div className="text-xl">Cargando habitación...</div>
             </div>
         );
     }
@@ -129,7 +129,7 @@ export default function AdminRoomForm() {
                     onClick={() => navigate('/admin/rooms')}
                     className="text-blue-600 hover:text-blue-800 flex items-center gap-2"
                 >
-                    ← Back to Rooms
+                    ← Volver a Habitaciones
                 </button>
             </div>
 
@@ -148,7 +148,7 @@ export default function AdminRoomForm() {
                     {/* Room Number */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Room Number *
+                            Número de Habitación *
                         </label>
                         <input
                             type="text"
@@ -164,7 +164,7 @@ export default function AdminRoomForm() {
                     {/* Room Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Room Type *
+                            Tipo de Habitación *
                         </label>
                         <select
                             name="type"
@@ -173,11 +173,11 @@ export default function AdminRoomForm() {
                             required
                             className="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
-                            <option value="standard">Standard</option>
-                            <option value="single">Single</option>
-                            <option value="double">Double</option>
+                            <option value="standard">Estándar</option>
+                            <option value="single">Individual</option>
+                            <option value="double">Doble</option>
                             <option value="suite">Suite</option>
-                            <option value="deluxe">Deluxe</option>
+                            <option value="deluxe">De lujo</option>
                         </select>
                     </div>
 
@@ -185,7 +185,7 @@ export default function AdminRoomForm() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Price per Night ($) *
+                                Precio por Noche ($) *
                             </label>
                             <input
                                 type="number"
@@ -202,7 +202,7 @@ export default function AdminRoomForm() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Capacity (Guests) *
+                                Capacidad (Huéspedes) *
                             </label>
                             <input
                                 type="number"
@@ -220,7 +220,7 @@ export default function AdminRoomForm() {
                     {/* Floor */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Floor *
+                            Piso *
                         </label>
                         <input
                             type="number"
@@ -237,7 +237,7 @@ export default function AdminRoomForm() {
                     {/* Description */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Description
+                            Descripción
                         </label>
                         <textarea
                             name="description"
@@ -252,7 +252,7 @@ export default function AdminRoomForm() {
                     {/* Amenities */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
-                            Amenities
+                            Amenidades
                         </label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <label className="flex items-center space-x-2 cursor-pointer">
@@ -274,7 +274,7 @@ export default function AdminRoomForm() {
                                     onChange={handleChange}
                                     className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                                 />
-                                <span className="text-sm">Air Conditioning</span>
+                                <span className="text-sm">Aire Acondicionado</span>
                             </label>
 
                             <label className="flex items-center space-x-2 cursor-pointer">
