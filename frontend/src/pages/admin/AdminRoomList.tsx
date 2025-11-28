@@ -113,7 +113,7 @@ export default function AdminRoomList() {
         try {
             const response = await adminRoomService.updateRoomStatus(roomId, newStatus);
             setSuccess(`✅ Estado de la habitación actualizado a: ${newStatus}`);
-            
+
             // Actualizar la habitación en la lista localmente
             setRooms((prevRooms) =>
                 prevRooms.map((room) =>
@@ -159,8 +159,8 @@ export default function AdminRoomList() {
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Room Management</h1>
-                        <p className="mt-2 text-sm text-gray-600">Manage all hotel rooms</p>
+                        <h1 className="text-3xl font-bold text-gray-900">Manejo de habitaciones</h1>
+                        <p className="mt-2 text-sm text-gray-600">Administra todas las habitaciones del hotel</p>
                     </div>
                     <div className="flex gap-4">
                         <Link
@@ -173,7 +173,7 @@ export default function AdminRoomList() {
                             to="/admin/rooms/new"
                             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                         >
-                            + Add New Room
+                            + agregar Habitación
                         </Link>
                     </div>
                 </div>
@@ -192,59 +192,59 @@ export default function AdminRoomList() {
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow p-6 mb-6">
-                    <h2 className="text-lg font-semibold mb-4">Filters</h2>
+                    <h2 className="text-lg font-semibold mb-4">Filtros</h2>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
                             <select
                                 name="type"
                                 value={filters.type}
                                 onChange={handleFilterChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">All Types</option>
-                                <option value="single">Single</option>
-                                <option value="double">Double</option>
+                                <option value="">Todo</option>
+                                <option value="single">Individual</option>
+                                <option value="double">Doble</option>
                                 <option value="suite">Suite</option>
-                                <option value="deluxe">Deluxe</option>
+                                <option value="deluxe">De lujo</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
                             <select
                                 name="status"
                                 value={filters.status}
                                 onChange={handleFilterChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">All Statuses</option>
-                                <option value="available">Available</option>
-                                <option value="occupied">Occupied</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="cleaning">Cleaning</option>
+                                <option value="">Todos los estados</option>
+                                <option value="available">Disponible</option>
+                                <option value="occupied">Ocupado</option>
+                                <option value="maintenance">Mantenimiento</option>
+                                <option value="cleaning">Limpieza</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Floor</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Piso</label>
                             <select
                                 name="floor"
                                 value={filters.floor}
                                 onChange={handleFilterChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">Any Floor</option>
-                                <option value="1">Floor 1</option>
-                                <option value="2">Floor 2</option>
-                                <option value="3">Floor 3</option>
-                                <option value="4">Floor 4</option>
-                                <option value="5">Floor 5</option>
+                                <option value="">Cualquier piso</option>
+                                <option value="1">Piso 1</option>
+                                <option value="2">Piso 2</option>
+                                <option value="3">Piso 3</option>
+                                <option value="4">Piso 4</option>
+                                <option value="5">Piso 5</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Max Price</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Precio Máximo</label>
                             <input
                                 type="number"
                                 name="maxPrice"
@@ -260,7 +260,7 @@ export default function AdminRoomList() {
                                 onClick={resetFilters}
                                 className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
                             >
-                                Reset Filters
+                                Restablecer filtros
                             </button>
                         </div>
                     </div>
@@ -268,7 +268,7 @@ export default function AdminRoomList() {
 
                 {/* Results count */}
                 <div className="mb-4 text-sm text-gray-600">
-                    Showing {filteredRooms.length} of {rooms.length} rooms
+                    Mostrando {filteredRooms.length} de {rooms.length} habitaciones
                 </div>
 
                 {/* Rooms Table */}
@@ -277,28 +277,28 @@ export default function AdminRoomList() {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Room #
+                                    Habitación #
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Type
+                                    Tipo
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Floor
+                                    Piso
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Price
+                                    Precio
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Capacity
+                                    Capacidad
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
+                                    Estado
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Amenities
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
+                                    Acciones
                                 </th>
                             </tr>
                         </thead>
@@ -306,7 +306,7 @@ export default function AdminRoomList() {
                             {filteredRooms.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                                        No rooms found. {filters.type || filters.status || filters.floor || filters.maxPrice ? 'Try adjusting your filters.' : 'Create your first room to get started.'}
+                                        No se encontraron habitaciones {filters.type || filters.status || filters.floor || filters.maxPrice ? 'Intenta ajustar tus filtros.' : 'Crea tu primera habitación para comenzar.'}
                                     </td>
                                 </tr>
                             ) : (
@@ -319,13 +319,13 @@ export default function AdminRoomList() {
                                             {room.type}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            Floor {room.floor}
+                                            Piso {room.floor}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             ${room.price}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {room.capacity} guests
+                                            {room.capacity} persona{room.capacity > 1 ? 's' : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="relative">
@@ -333,47 +333,22 @@ export default function AdminRoomList() {
                                                     value={room.status}
                                                     onChange={(e) => handleStatusChange(room.id, e.target.value)}
                                                     disabled={updatingRoomId === room.id}
-                                                    className={`text-sm rounded-full px-3 py-1 font-semibold cursor-pointer transition-all ${
-                                                        updatingRoomId === room.id
-                                                            ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-600'
-                                                            : room.status === 'available'
-                                                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                                                : room.status === 'occupied'
-                                                                    ? 'bg-red-100 text-red-800 hover:bg-red-200'
-                                                                    : room.status === 'maintenance'
-                                                                        ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                                                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                                                    }`}
+                                                    className={`text-sm rounded-full px-3 py-1 font-semibold cursor-pointer transition-all ${updatingRoomId === room.id
+                                                        ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-600'
+                                                        : room.status === 'available'
+                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                            : room.status === 'occupied'
+                                                                ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                                                                : room.status === 'maintenance'
+                                                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                                        }`}
                                                 >
-                                                    <option value="available">Available</option>
-                                                    <option value="occupied">Occupied</option>
-                                                    <option value="maintenance">Maintenance</option>
-                                                    <option value="reserved">Reserved</option>
+                                                    <option value="available">Disponible</option>
+                                                    <option value="occupied">Ocupado</option>
+                                                    <option value="maintenance">Mantenimiento</option>
+                                                    <option value="cleaning">Limpieza</option>
                                                 </select>
-                                                {updatingRoomId === room.id && (
-                                                    <span className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                                        <svg
-                                                            className="animate-spin h-4 w-4 text-gray-600"
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <circle
-                                                                className="opacity-25"
-                                                                cx="12"
-                                                                cy="12"
-                                                                r="10"
-                                                                stroke="currentColor"
-                                                                strokeWidth="4"
-                                                            />
-                                                            <path
-                                                                className="opacity-75"
-                                                                fill="currentColor"
-                                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                            />
-                                                        </svg>
-                                                    </span>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -403,10 +378,11 @@ export default function AdminRoomList() {
                                                 onClick={() => setDeleteModal({ show: true, roomId: room.id })}
                                                 className="text-red-600 hover:text-red-900"
                                             >
-                                                Delete
+                                                Eliminar
                                             </button>
                                         </td>
                                     </tr>
+
                                 ))
                             )}
                         </tbody>
@@ -417,22 +393,22 @@ export default function AdminRoomList() {
                 {deleteModal.show && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                            <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
+                            <h3 className="text-lg font-semibold mb-4">Confirmar</h3>
                             <p className="text-gray-600 mb-6">
-                                Are you sure you want to delete this room? This action cannot be undone.
+                                ¿Estás seguro de que deseas eliminar esta habitación? Esta acción no se puede deshacer.
                             </p>
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={() => setDeleteModal({ show: false, roomId: null })}
                                     className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
                                 >
-                                    Cancel
+                                    Cancelar
                                 </button>
                                 <button
                                     onClick={handleDelete}
                                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                                 >
-                                    Delete
+                                    Eliminar
                                 </button>
                             </div>
                         </div>

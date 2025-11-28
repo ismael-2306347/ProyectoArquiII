@@ -54,7 +54,6 @@ type RoomListResponse struct {
 }
 
 type RoomFilter struct {
-	Query      *string     `json:"q,omitempty"`
 	Type       *RoomType   `json:"type,omitempty"`
 	Status     *RoomStatus `json:"status,omitempty"`
 	Floor      *int        `json:"floor,omitempty"`
