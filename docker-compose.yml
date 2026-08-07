@@ -6,16 +6,16 @@ services:
     image: mysql:8.0
     container_name: mysql-users
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: usersdb
-      MYSQL_USER: user
-      MYSQL_PASSWORD: userpass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_USERS_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${USERS_DB_NAME:-usersdb}
+      MYSQL_USER: ${USERS_DB_USER:-user}
+      MYSQL_PASSWORD: ${USERS_DB_PASSWORD:-userpass}
     ports:
       - "3307:3306"
     volumes:
       - mysql_users_data:/var/lib/mysql
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_USERS_ROOT_PASSWORD:-root}" ]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -28,16 +28,16 @@ services:
     image: mysql:8.0
     container_name: mysql-rooms
     environment:
-      MYSQL_ROOT_PASSWORD: rootrooms
-      MYSQL_DATABASE: roomsdb
-      MYSQL_USER: roomsuser
-      MYSQL_PASSWORD: roomspass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOMS_ROOT_PASSWORD:-rootrooms}
+      MYSQL_DATABASE: ${ROOMS_DB_NAME:-roomsdb}
+      MYSQL_USER: ${ROOMS_DB_USER:-roomsuser}
+      MYSQL_PASSWORD: ${ROOMS_DB_PASSWORD:-roomspass}
     ports:
       - "3308:3306"
     volumes:
       - mysql_rooms_data:/var/lib/mysql
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootrooms" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOMS_ROOT_PASSWORD:-rootrooms}" ]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -51,8 +51,8 @@ services:
     container_name: mongodb
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpass}
     ports:
       - "27017:27017"
     volumes:
@@ -71,8 +71,8 @@ services:
     container_name: rabbitmq
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -129,10 +129,10 @@ services:
     environment:
       - DB_HOST=mysql-users
       - DB_PORT=3306
-      - DB_USER=user
-      - DB_PASSWORD=userpass
-      - DB_NAME=usersdb
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - DB_USER=${USERS_DB_USER:-user}
+      - DB_PASSWORD=${USERS_DB_PASSWORD:-userpass}
+      - DB_NAME=${USERS_DB_NAME:-usersdb}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       - MEMCACHED_HOST=memcached
       - MEMCACHED_PORT=11211
       - MEMCACHED_TTL=600
@@ -151,7 +151,7 @@ services:
   rooms-api:
     build:
       context: ./services/rooms-api
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
     container_name: rooms-api
     restart: always
     depends_on:
@@ -165,11 +165,11 @@ services:
     environment:
       - DB_HOST=mysql-rooms
       - DB_PORT=3306
-      - DB_USER=roomsuser
-      - DB_PASSWORD=roomspass
-      - DB_NAME=roomsdb
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - DB_USER=${ROOMS_DB_USER:-roomsuser}
+      - DB_PASSWORD=${ROOMS_DB_PASSWORD:-roomspass}
+      - DB_NAME=${ROOMS_DB_NAME:-roomsdb}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
       - MEMCACHED_HOST=memcached
       - MEMCACHED_PORT=11211
       - MEMCACHED_TTL=300
@@ -183,7 +183,7 @@ services:
   reservations-api:
     build:
       context: ./services/reservations-api
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
     container_name: reservations-api
     restart: always
     depends_on:
@@ -192,9 +192,9 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      MONGO_URI: "mongodb://root:rootpass@mongodb:27017/?authSource=admin"
+      MONGO_URI: "mongodb://${MONGO_ROOT_USER:-root}:${MONGO_ROOT_PASSWORD:-rootpass}@mongodb:27017/?authSource=admin"
       MONGO_DB_NAME: "mongodb"
-      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/"
     ports:
       - "8082:8080"
 
@@ -221,9 +221,9 @@ services:
       - MEMCACHED_PORT=11211
       - LOCAL_CACHE_TTL_SECONDS=60
       - DISTRIBUTED_CACHE_TTL_SECONDS=300
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
       - ROOMS_API_BASE_URL=http://rooms-api:8080
-      - JWT_SECRET=supersecreto_cámbialo
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       - PORT=8083
       - GIN_MODE=release
     ports:
