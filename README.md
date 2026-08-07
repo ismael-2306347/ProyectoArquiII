@@ -143,7 +143,6 @@ servicios del backend).
 .
 ├── docker-compose.yml          # Orquestación de todos los servicios
 ├── .env.example                # Plantilla de variables de entorno
-├── init-db.sql                 # Inicialización de bases MySQL
 ├── frontend/                   # SPA en React + TypeScript + Vite
 │   └── src/
 │       ├── components/         # UI, layout y rutas protegidas

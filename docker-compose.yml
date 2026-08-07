@@ -96,7 +96,6 @@ services:
       - "8983:8983"
     volumes:
       - solr_data:/var/solr
-      - ./services/search-api/scripts/solr-init.sh:/docker-entrypoint-initdb.d/solr-init.sh
     environment:
       - SOLR_HEAP=512m
     command:
