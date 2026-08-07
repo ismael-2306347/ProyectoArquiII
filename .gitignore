@@ -1,0 +1,45 @@
+# ===== Secrets / entornos =====
+.env
+.env.local
+*.local
+token.txt
+*.pem
+*.key
+
+# ===== Binarios compilados (Go) =====
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+server
+bin/
+
+# ===== Artefactos de build / temporales =====
+tmp/
+*.log
+build-errors.log
+*.zip
+*.tar
+*.tar.gz
+
+# ===== Node / frontend (respaldo; el frontend tiene su propio .gitignore) =====
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# ===== IDE / editor =====
+.vscode/
+.idea/
+*.swp
+*~
+
+# ===== Sistema operativo =====
+.DS_Store
+Thumbs.db
+
+# ===== Claude Code (config local personal) =====
+.claude/settings.local.json
