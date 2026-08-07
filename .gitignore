@@ -43,3 +43,6 @@ Thumbs.db
 
 # ===== Claude Code (config local personal) =====
 .claude/settings.local.json
+
+# ===== Specs de brainstorming (internos) =====
+docs/superpowers/specs
