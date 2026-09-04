@@ -1,6 +1,6 @@
 services:
   # ===========================
-  # 🔹 MySQL para users-api
+  # 🔹 MySQL para users-api1
   # ===========================
   mysql-users:
     image: mysql:8.0
